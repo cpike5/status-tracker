@@ -1,0 +1,5 @@
+/* Mini variant — overrides the global .uptime-bar defaults (36px / 2px gap) */
+.uptime-bar--mini {
+    height: 24px;
+    gap: 1px;
+}

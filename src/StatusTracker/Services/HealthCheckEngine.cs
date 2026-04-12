@@ -15,6 +15,7 @@ public sealed class HealthCheckEngine : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly HealthCheckOptions _options;
     private readonly ILogger<HealthCheckEngine> _logger;
+    private readonly IStatusUpdateNotifier _notifier;
 
     private readonly ConcurrentDictionary<int, DateTime> _nextCheckTimes = new();
     private readonly ConcurrentDictionary<(int RetryCount, int TimeoutSeconds), ResiliencePipeline<HttpResponseMessage>> _pipelineCache = new();
@@ -23,12 +24,14 @@ public sealed class HealthCheckEngine : BackgroundService
         IServiceScopeFactory serviceScopeFactory,
         IHttpClientFactory httpClientFactory,
         IOptions<HealthCheckOptions> options,
-        ILogger<HealthCheckEngine> logger)
+        ILogger<HealthCheckEngine> logger,
+        IStatusUpdateNotifier notifier)
     {
         _scopeFactory = serviceScopeFactory;
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
         _logger = logger;
+        _notifier = notifier;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -137,6 +140,7 @@ public sealed class HealthCheckEngine : BackgroundService
                     };
 
                     await RecordResultAsync(result);
+                    _notifier.NotifyUpdate(endpoint.Id);
 
                     _logger.LogInformation(
                         "Health check completed: {EndpointId} {EndpointName} — IsHealthy: {IsHealthy}, ResponseTimeMs: {ResponseTimeMs}",
@@ -170,6 +174,7 @@ public sealed class HealthCheckEngine : BackgroundService
                     try
                     {
                         await RecordResultAsync(failedResult);
+                        _notifier.NotifyUpdate(endpoint.Id);
                     }
                     catch (Exception recordEx)
                     {

@@ -1,8 +1,150 @@
 @page "/"
+@rendermode InteractiveServer
 
-<PageTitle>Status Tracker</PageTitle>
+@using StatusTracker.Services
+@using StatusTracker.Entities
 
-<MudText Typo="Typo.h3" Class="mb-4">Dashboard</MudText>
-<MudText Typo="Typo.body1" Color="Color.Secondary">
-    Status Tracker is running. Dashboard components will be implemented in Phase 5.
-</MudText>
+@inject IEndpointService EndpointService
+@inject ICheckResultService CheckResultService
+@inject IStatusUpdateNotifier Notifier
+@inject ILogger<Home> Logger
+
+@implements IAsyncDisposable
+
+<PageTitle>Dashboard — Status Tracker</PageTitle>
+
+@if (_loadError is not null)
+{
+    <div class="dashboard-error" role="alert">
+        <p>Failed to load dashboard data. Please refresh the page.</p>
+    </div>
+}
+else if (_allEndpoints is null)
+{
+    <div class="dashboard-loading" aria-busy="true" aria-label="Loading dashboard">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+    </div>
+}
+else
+{
+    <SystemBanner Endpoints="@_allEndpoints" />
+
+    <div class="dashboard-groups">
+        @{
+            var runningIndex = 0;
+        }
+        @foreach (var group in _sortedGroups)
+        {
+            <EndpointGroup GroupName="@group.Key"
+                           Endpoints="@group.Endpoints"
+                           DailySummariesByEndpoint="@_dailySummaries"
+                           BaseIndex="@runningIndex" />
+            runningIndex += group.Endpoints.Count;
+        }
+    </div>
+}
+
+@code {
+    private List<EndpointStatusDto>? _allEndpoints;
+    private Dictionary<int, List<DailyUptimeSummary>> _dailySummaries = new();
+    private List<(string? Key, List<EndpointStatusDto> Endpoints)> _sortedGroups = [];
+    private string? _loadError;
+    private readonly CancellationTokenSource _cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Notifier.OnEndpointUpdated += HandleEndpointUpdated;
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var endpoints = await EndpointService.GetWithStatusAsync();
+
+            var summaryTasks = endpoints.Select(async e =>
+            {
+                var summaries = await CheckResultService.GetDailyUptimeSummaryAsync(e.Endpoint.Id, 90);
+                return (EndpointId: e.Endpoint.Id, Summaries: summaries);
+            });
+
+            var summaryResults = await Task.WhenAll(summaryTasks);
+
+            _dailySummaries = summaryResults.ToDictionary(r => r.EndpointId, r => r.Summaries);
+
+            _sortedGroups = endpoints
+                .GroupBy(e => e.Endpoint.Group)
+                .Select(g => (
+                    Key: g.Key,
+                    Endpoints: g.OrderBy(e => e.Endpoint.SortOrder).ThenBy(e => e.Endpoint.Name).ToList(),
+                    MinSort: g.Min(e => e.Endpoint.SortOrder)
+                ))
+                .OrderBy(g => g.MinSort)
+                .ThenBy(g => g.Key)
+                .Select(g => (g.Key, g.Endpoints))
+                .ToList();
+
+            _allEndpoints = endpoints;
+            _loadError = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load dashboard data");
+            _loadError = ex.Message;
+        }
+    }
+
+    private async Task RefreshEndpointAsync(int endpointId)
+    {
+        try
+        {
+            var endpoints = await EndpointService.GetWithStatusAsync();
+            var summaries = await CheckResultService.GetDailyUptimeSummaryAsync(endpointId, 90);
+
+            _dailySummaries[endpointId] = summaries;
+
+            _sortedGroups = endpoints
+                .GroupBy(e => e.Endpoint.Group)
+                .Select(g => (
+                    Key: g.Key,
+                    Endpoints: g.OrderBy(e => e.Endpoint.SortOrder).ThenBy(e => e.Endpoint.Name).ToList(),
+                    MinSort: g.Min(e => e.Endpoint.SortOrder)
+                ))
+                .OrderBy(g => g.MinSort)
+                .ThenBy(g => g.Key)
+                .Select(g => (g.Key, g.Endpoints))
+                .ToList();
+
+            _allEndpoints = endpoints;
+            _loadError = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to refresh data for endpoint {EndpointId}", endpointId);
+        }
+    }
+
+    private void HandleEndpointUpdated(int endpointId)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (_cts.IsCancellationRequested) return;
+            try
+            {
+                await RefreshEndpointAsync(endpointId);
+                StateHasChanged();
+            }
+            catch (ObjectDisposedException) { }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Notifier.OnEndpointUpdated -= HandleEndpointUpdated;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

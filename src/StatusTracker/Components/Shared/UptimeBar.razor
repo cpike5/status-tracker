@@ -1,0 +1,70 @@
+@rendermode InteractiveServer
+
+@using StatusTracker.Services
+
+<div class="uptime-bar uptime-bar--mini"
+     role="img"
+     aria-label="@AriaLabel">
+    @foreach (var cssClass in _segments)
+    {
+        <div class="uptime-segment @cssClass"></div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public List<DailyUptimeSummary> DailySummaries { get; set; } = [];
+
+    [Parameter]
+    public decimal? UptimePercentage { get; set; }
+
+    private const int TotalSegments = 90;
+
+    private string AriaLabel =>
+        UptimePercentage.HasValue
+            ? $"90-day uptime history: {UptimePercentage:F1}%"
+            : "90-day uptime history";
+
+    private List<string> _segments = [];
+
+    protected override void OnParametersSet()
+    {
+        _segments = BuildSegments();
+    }
+
+    private List<string> BuildSegments()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var result = new List<string>(TotalSegments);
+
+        // Build a lookup keyed by date for O(1) access
+        var lookup = DailySummaries
+            .ToDictionary(s => s.Date, s => s);
+
+        for (var i = TotalSegments - 1; i >= 0; i--)
+        {
+            var date = today.AddDays(-i);
+            var cssClass = lookup.TryGetValue(date, out var summary)
+                ? GetSegmentClass(summary)
+                : "uptime-segment--unknown";
+
+            result.Add(cssClass);
+        }
+
+        return result;
+    }
+
+    private static string GetSegmentClass(DailyUptimeSummary summary)
+    {
+        if (summary.TotalChecks == 0)
+            return "uptime-segment--unknown";
+
+        if (summary.UptimePercent >= 100m)
+            return "uptime-segment--up";
+
+        if (summary.UptimePercent <= 0m)
+            return "uptime-segment--down";
+
+        return "uptime-segment--degraded";
+    }
+}

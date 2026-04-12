@@ -1,0 +1,72 @@
+/* Uptime percentage header */
+.uptime-detail-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+
+.uptime-percentage {
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.uptime-percentage--up      { color: var(--color-up); }
+.uptime-percentage--degraded { color: var(--color-degraded); }
+.uptime-percentage--down    { color: var(--color-down); }
+
+.uptime-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+}
+
+/* Tooltip on each segment via CSS ::after — no JS needed */
+.uptime-segment {
+    position: relative;
+    height: 36px;
+}
+
+.uptime-segment:hover::after {
+    content: attr(data-date);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    padding: 3px 7px;
+    border-radius: var(--radius-sm);
+    pointer-events: none;
+    z-index: 10;
+    /* Fade in */
+    animation: tooltip-in 120ms var(--ease-out-expo) both;
+}
+
+@keyframes tooltip-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .uptime-segment:hover::after {
+        animation: none;
+    }
+}
+
+/* Legend */
+.uptime-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+}

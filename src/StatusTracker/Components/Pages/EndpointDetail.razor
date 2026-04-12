@@ -1,0 +1,433 @@
+@page "/endpoint/{Id:int}"
+@rendermode InteractiveServer
+
+@using StatusTracker.Services
+@using StatusTracker.Entities
+@using ApexCharts
+
+@inject IEndpointService EndpointService
+@inject ICheckResultService CheckResultService
+@inject IStatusUpdateNotifier Notifier
+@inject ILogger<EndpointDetail> Logger
+
+@implements IAsyncDisposable
+
+<PageTitle>@(_endpoint?.Name ?? "Endpoint") — Status Tracker</PageTitle>
+
+@if (_notFound)
+{
+    <div class="content-container">
+        <a href="/" class="back-link">← All endpoints</a>
+        <div class="not-found-message" role="alert">
+            <p>Endpoint not found.</p>
+        </div>
+    </div>
+}
+else if (_endpoint is null)
+{
+    <div class="detail-loading" aria-busy="true" aria-label="Loading endpoint details">
+        <MudProgressCircular Indeterminate="true" Size="MudBlazor.Size.Small" />
+    </div>
+}
+else
+{
+    <div class="content-container page-enter">
+
+        <!-- Section 1: Back navigation -->
+        <a href="/" class="back-link">← All endpoints</a>
+
+        <!-- Section 2: Detail header -->
+        <div class="detail-header">
+            <div class="detail-title-row">
+                <div class="detail-title-block">
+                    <h1 class="detail-name">@_endpoint.Name</h1>
+                    <span class="detail-url">@_endpoint.Url</span>
+                </div>
+                <span class="status-badge status-badge--@StatusCssModifier">@StatusText</span>
+            </div>
+        </div>
+
+        <!-- Section 3: Metrics strip -->
+        <div class="metrics-strip">
+            <div class="metric-cell">
+                <div class="metric-label">Uptime (30D)</div>
+                <div class="metric-value">@(_uptime30d.HasValue ? $"{_uptime30d:F2}%" : "—")</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">Avg Response</div>
+                <div class="metric-value">@(_avgResponseMs.HasValue ? $"{_avgResponseMs}ms" : "—")</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">Total Checks</div>
+                <div class="metric-value">@(_totalChecks.HasValue ? _totalChecks.Value.ToString("N0") : "—")</div>
+            </div>
+            <div class="metric-cell">
+                <div class="metric-label">Last Incident</div>
+                <div class="metric-value">@_lastIncident</div>
+            </div>
+        </div>
+
+        <!-- Section 4: Response time chart -->
+        <div class="detail-card">
+            <div class="card-header">
+                <span class="card-title">Response Time</span>
+                <MudToggleGroup T="string" Value="@_selectedRange" ValueChanged="OnRangeChanged"
+                                Color="MudBlazor.Color.Primary" Outlined="true">
+                    <MudToggleItem Value="@("1h")">1h</MudToggleItem>
+                    <MudToggleItem Value="@("6h")">6h</MudToggleItem>
+                    <MudToggleItem Value="@("24h")">24h</MudToggleItem>
+                    <MudToggleItem Value="@("7d")">7d</MudToggleItem>
+                </MudToggleGroup>
+            </div>
+
+            @if (_responseTimeHistory is not null && _responseTimeHistory.Count > 0)
+            {
+                <ApexChart TItem="ResponseTimePoint"
+                           Options="_chartOptions"
+                           @ref="_chart"
+                           Height="200">
+                    <ApexPointSeries TItem="ResponseTimePoint"
+                                     Items="_responseTimeHistory"
+                                     Name="Response Time"
+                                     SeriesType="SeriesType.Area"
+                                     XValue="@(e => e.Timestamp.ToLocalTime().ToString("MMM d h:mm tt"))"
+                                     YValue="@(e => (decimal)e.ResponseTimeMs)" />
+                </ApexChart>
+            }
+            else if (_responseTimeHistory is not null)
+            {
+                <div class="chart-empty">No response data for this time range.</div>
+            }
+            else
+            {
+                <div class="chart-loading">
+                    <MudProgressLinear Indeterminate="true" />
+                </div>
+            }
+        </div>
+
+        <!-- Section 5: 90-Day uptime bar -->
+        <div class="detail-card">
+            <div class="card-header">
+                <span class="card-title">90-Day Uptime</span>
+            </div>
+            @if (_dailySummaries is not null)
+            {
+                <UptimeBarDetail DailySummaries="_dailySummaries"
+                                 UptimePercentage="@_uptime30d" />
+            }
+        </div>
+
+        <!-- Section 6: Recent checks table -->
+        <div class="detail-card">
+            <div class="card-header">
+                <span class="card-title">Recent Checks</span>
+            </div>
+            @if (_recentChecks is not null && _recentChecks.Count > 0)
+            {
+                <div class="checks-table-wrapper">
+                    <table class="checks-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Status</th>
+                                <th>Response</th>
+                                <th>HTTP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var check in _recentChecks)
+                            {
+                                <tr>
+                                    <td class="col-timestamp">
+                                        @check.Timestamp.ToString("h:mm:ss tt") <span class="utc-suffix">(UTC)</span>
+                                    </td>
+                                    <td class="col-status">
+                                        <span class="check-dot @(check.IsHealthy ? "check-dot--up" : "check-dot--down")"></span>
+                                        @(check.IsHealthy ? "Healthy" : "Down")
+                                    </td>
+                                    <td class="col-response">
+                                        @(check.ResponseTimeMs.HasValue ? $"{check.ResponseTimeMs}ms" : "—")
+                                    </td>
+                                    <td class="col-http">
+                                        @(check.HttpStatusCode.HasValue ? check.HttpStatusCode.Value.ToString() : "—")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (_recentChecks is not null)
+            {
+                <div class="checks-empty">No recent checks recorded.</div>
+            }
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private MonitoredEndpoint? _endpoint;
+    private bool _notFound;
+
+    private decimal? _uptime30d;
+    private int? _avgResponseMs;
+    private int? _totalChecks;
+    private string _lastIncident = "—";
+
+    private List<ResponseTimePoint>? _responseTimeHistory;
+    private List<DailyUptimeSummary>? _dailySummaries;
+    private List<CheckResult>? _recentChecks;
+
+    private string _selectedRange = "24h";
+    private ApexChart<ResponseTimePoint>? _chart;
+    private readonly CancellationTokenSource _cts = new();
+
+    private ApexChartOptions<ResponseTimePoint> _chartOptions = new()
+    {
+        Chart = new Chart
+        {
+            Background = "transparent",
+            Toolbar = new Toolbar { Show = false },
+            Zoom = new Zoom { Enabled = false }
+        },
+        Colors = new List<string> { "#1a9a45" },
+        Fill = new Fill
+        {
+            Type = new FillTypeSelections([FillType.Gradient]),
+            Gradient = new FillGradient
+            {
+                ShadeIntensity = 1,
+                OpacityFrom = new Opacity([0.25]),
+                OpacityTo = new Opacity([0.02]),
+                Stops = [0, 100]
+            }
+        },
+        Stroke = new Stroke
+        {
+            Curve = new CurveSelections([Curve.Smooth]),
+            Width = new ApexCharts.Size([2.0])
+        },
+        Xaxis = new XAxis
+        {
+            Type = XAxisType.Category,
+            Labels = new XAxisLabels
+            {
+                Show = true,
+                Style = new AxisLabelStyle
+                {
+                    FontFamily = "'JetBrains Mono', monospace",
+                    FontSize = "11px",
+                    Colors = new ApexCharts.Color(["#8b92a0"])
+                },
+                Rotate = -30,
+                MaxHeight = 60
+            },
+            TickAmount = 6,
+            Tooltip = new XAxisTooltip { Enabled = false }
+        },
+        Yaxis =
+        [
+            new YAxis
+            {
+                Labels = new YAxisLabels
+                {
+                    Formatter = "function(val) { return val + 'ms'; }",
+                    Style = new AxisLabelStyle
+                    {
+                        FontFamily = "'JetBrains Mono', monospace",
+                        FontSize = "11px",
+                        Colors = new ApexCharts.Color(["#8b92a0"])
+                    }
+                }
+            }
+        ],
+        Grid = new Grid
+        {
+            BorderColor = "#f0f2f6",
+            StrokeDashArray = 3
+        },
+        Tooltip = new Tooltip
+        {
+            Theme = Mode.Light,
+            Y = new TooltipY
+            {
+                Formatter = "function(val) { return val + 'ms'; }"
+            }
+        },
+        Markers = new Markers { Size = new ApexCharts.Size([0.0]) },
+        DataLabels = new DataLabels { Enabled = false },
+        Legend = new Legend { Show = false }
+    };
+
+    // Computed display properties
+    private EndpointStatus _currentStatus = EndpointStatus.Unknown;
+
+    private string StatusCssModifier => _currentStatus switch
+    {
+        EndpointStatus.Up => "up",
+        EndpointStatus.Down => "down",
+        EndpointStatus.Degraded => "degraded",
+        _ => "unknown"
+    };
+
+    private string StatusText => _currentStatus switch
+    {
+        EndpointStatus.Up => "OPERATIONAL",
+        EndpointStatus.Down => "DOWN",
+        EndpointStatus.Degraded => "DEGRADED",
+        _ => "UNKNOWN"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Notifier.OnEndpointUpdated += HandleEndpointUpdated;
+        await LoadAllDataAsync();
+    }
+
+    private async Task LoadAllDataAsync()
+    {
+        try
+        {
+            var endpoint = await EndpointService.GetByIdAsync(Id);
+
+            if (endpoint is null)
+            {
+                _notFound = true;
+                Logger.LogWarning("Endpoint {EndpointId} not found", Id);
+                return;
+            }
+
+            _endpoint = endpoint;
+
+            // Run independent data fetches in parallel
+            var uptimeTask = CheckResultService.GetUptimePercentageAsync(Id, TimeSpan.FromDays(30));
+            var historyTask = CheckResultService.GetResponseTimeHistoryAsync(Id, RangeToTimeSpan(_selectedRange));
+            var dailyTask = CheckResultService.GetDailyUptimeSummaryAsync(Id, 90);
+            var checksTask = CheckResultService.GetLatestByEndpointAsync(Id, 12);
+
+            await Task.WhenAll(uptimeTask, historyTask, dailyTask, checksTask);
+
+            _uptime30d = await uptimeTask;
+            _responseTimeHistory = await historyTask;
+            _dailySummaries = await dailyTask;
+            _recentChecks = await checksTask;
+
+            ComputeDerivedMetrics();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load data for endpoint {EndpointId}", Id);
+        }
+    }
+
+    private void ComputeDerivedMetrics()
+    {
+        if (_recentChecks is null) return;
+
+        // Avg response time from response time history
+        if (_responseTimeHistory is { Count: > 0 })
+        {
+            _avgResponseMs = (int)_responseTimeHistory
+                .Average(p => (double)p.ResponseTimeMs);
+        }
+
+        // Total checks from daily summaries
+        if (_dailySummaries is { Count: > 0 })
+        {
+            _totalChecks = _dailySummaries.Sum(s => s.TotalChecks);
+        }
+
+        // Status from most recent check
+        if (_recentChecks.Count > 0)
+        {
+            var latest = _recentChecks[0];
+            _currentStatus = latest.IsHealthy ? EndpointStatus.Up : EndpointStatus.Down;
+        }
+
+        // Last incident: most recent unhealthy check
+        var lastBad = _recentChecks.FirstOrDefault(c => !c.IsHealthy);
+        if (lastBad is not null)
+        {
+            _lastIncident = FormatRelativeTime(lastBad.Timestamp);
+        }
+        else
+        {
+            _lastIncident = "None";
+        }
+    }
+
+    private async Task OnRangeChanged(string range)
+    {
+        if (_selectedRange == range) return;
+        _selectedRange = range;
+
+        try
+        {
+            _responseTimeHistory = null; // trigger loading state
+            StateHasChanged();
+
+            _responseTimeHistory = await CheckResultService
+                .GetResponseTimeHistoryAsync(Id, RangeToTimeSpan(range));
+
+            if (_chart is not null)
+            {
+                await _chart.UpdateSeriesAsync(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load response time history for endpoint {EndpointId}, range {Range}",
+                Id, range);
+        }
+    }
+
+    private void HandleEndpointUpdated(int endpointId)
+    {
+        if (endpointId != Id) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_cts.IsCancellationRequested) return;
+            try
+            {
+                await LoadAllDataAsync();
+                StateHasChanged();
+            }
+            catch (ObjectDisposedException) { }
+            catch (OperationCanceledException) { }
+        });
+    }
+
+    private static TimeSpan RangeToTimeSpan(string range) => range switch
+    {
+        "1h" => TimeSpan.FromHours(1),
+        "6h" => TimeSpan.FromHours(6),
+        "7d" => TimeSpan.FromDays(7),
+        _ => TimeSpan.FromHours(24)
+    };
+
+    private static string FormatRelativeTime(DateTime utcTime)
+    {
+        var elapsed = DateTime.UtcNow - utcTime;
+
+        if (elapsed.TotalMinutes < 1)
+            return "Just now";
+        if (elapsed.TotalMinutes < 60)
+            return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24)
+            return $"{(int)elapsed.TotalHours}h ago";
+        return $"{(int)elapsed.TotalDays}d ago";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Notifier.OnEndpointUpdated -= HandleEndpointUpdated;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+}

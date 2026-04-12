@@ -53,6 +53,9 @@ try
     builder.Services.AddScoped<ICheckResultService, CheckResultService>();
     builder.Services.AddScoped<ISiteSettingsService, SiteSettingsService>();
 
+    // Real-time update notifier — singleton so HealthCheckEngine (singleton) can signal Blazor circuits (scoped)
+    builder.Services.AddSingleton<IStatusUpdateNotifier, StatusUpdateNotifier>();
+
     // Background services
     builder.Services.AddHostedService<HealthCheckEngine>();
     builder.Services.AddHostedService<DataRetentionService>();
