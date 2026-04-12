@@ -1,3 +1,4 @@
+using Elastic.Apm.NetCoreAll;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -53,6 +54,10 @@ try
 
     // Background services
     builder.Services.AddHostedService<HealthCheckEngine>();
+
+    // Infrastructure health checks
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!);
 
     // Configuration pipeline
     builder.Services.Configure<HealthCheckOptions>(
@@ -220,6 +225,11 @@ try
         app.UseExceptionHandler("/Error", createScopeForErrors: true);
     }
 
+    if (!string.IsNullOrEmpty(app.Configuration["ElasticApm:ServerUrl"]))
+    {
+        app.UseAllElasticApm(app.Configuration);
+    }
+
     app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
@@ -249,6 +259,8 @@ try
         await context.SignOutAsync(IdentityConstants.ExternalScheme);
         return Results.Redirect("/login");
     }).AllowAnonymous();
+
+    app.MapHealthChecks("/health").AllowAnonymous();
 
     await app.RunAsync();
 }
