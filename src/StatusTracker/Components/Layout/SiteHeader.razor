@@ -2,8 +2,15 @@
 
 <header class="site-header">
     <div class="header-content">
-        @* TODO: Replace with SiteSettings.SiteTitle (Phase 6, Task 6.5) *@
-        <a href="/" class="site-title">Status Tracker</a>
+        <div class="d-flex align-center gap-2">
+            @if (!string.IsNullOrEmpty(LogoUrl))
+            {
+                <a href="/">
+                    <img src="@LogoUrl" alt="@SiteTitle" style="max-height: 32px;" />
+                </a>
+            }
+            <a href="/" class="site-title">@SiteTitle</a>
+        </div>
 
         <div class="nav-meta">
             <AuthorizeView>
@@ -13,8 +20,24 @@
                         <span>Live</span>
                     </span>
                     <span class="separator">|</span>
-                    @* TODO: Update via SignalR push from health check engine (Phase 5) *@
                     <span class="last-updated">Last updated: @DateTime.UtcNow.ToString("h:mm:ss tt")</span>
+                    <span class="separator">|</span>
+                    <MudMenu Icon="@Icons.Material.Filled.Settings"
+                             Size="Size.Small"
+                             Color="Color.Inherit"
+                             AnchorOrigin="Origin.BottomRight"
+                             TransformOrigin="Origin.TopRight"
+                             Dense="true"
+                             aria-label="Admin menu">
+                        <MudMenuItem Href="/admin/endpoints"
+                                     Icon="@Icons.Material.Filled.MonitorHeart">
+                            Manage Endpoints
+                        </MudMenuItem>
+                        <MudMenuItem Href="/admin/settings"
+                                     Icon="@Icons.Material.Filled.Tune">
+                            Site Settings
+                        </MudMenuItem>
+                    </MudMenu>
                     <span class="separator">|</span>
                     <MudLink Href="/api/auth/logout" Color="Color.Inherit" Typo="Typo.caption" Style="font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.10em;">Logout</MudLink>
                 </Authorized>
@@ -22,3 +45,8 @@
         </div>
     </div>
 </header>
+
+@code {
+    [Parameter] public string SiteTitle { get; set; } = "Status Tracker";
+    [Parameter] public string? LogoUrl { get; set; }
+}

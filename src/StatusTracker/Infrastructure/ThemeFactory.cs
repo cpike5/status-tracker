@@ -154,14 +154,20 @@ public static class ThemeFactory
 
     private static string DarkenColor(string hexColor)
     {
-        // Simple darken by reducing RGB values by ~20%
-        if (hexColor.StartsWith('#') && hexColor.Length == 7)
+        var hex = hexColor.StartsWith('#') ? hexColor[1..] : hexColor;
+
+        // Expand #RGB → #RRGGBB
+        if (hex.Length == 3)
+            hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+
+        if (hex.Length == 6)
         {
-            var r = (int)(Convert.ToInt32(hexColor[1..3], 16) * 0.8);
-            var g = (int)(Convert.ToInt32(hexColor[3..5], 16) * 0.8);
-            var b = (int)(Convert.ToInt32(hexColor[5..7], 16) * 0.8);
+            var r = (int)(Convert.ToInt32(hex[..2], 16) * 0.8);
+            var g = (int)(Convert.ToInt32(hex[2..4], 16) * 0.8);
+            var b = (int)(Convert.ToInt32(hex[4..6], 16) * 0.8);
             return $"#{r:X2}{g:X2}{b:X2}";
         }
+
         return "#2d55c4"; // fallback
     }
 }

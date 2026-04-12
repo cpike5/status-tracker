@@ -1,0 +1,344 @@
+@page "/admin/settings"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using StatusTracker.Services
+@using StatusTracker.Entities
+@inject ISiteSettingsService SettingsService
+@inject ISnackbar Snackbar
+@inject ILogger<SiteSettingsEditor> Logger
+
+<PageTitle>Site Settings</PageTitle>
+
+@if (_isLoading)
+{
+    <MudStack Spacing="4">
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="28px" Width="220px" />
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Spacing="5">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" />
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" />
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" />
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="56px" />
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="40px" Width="120px" />
+            </MudStack>
+        </MudPaper>
+    </MudStack>
+}
+else
+{
+    <MudBreadcrumbs Items="_breadcrumbs" Class="pa-0 mb-4" />
+
+    <MudText Typo="Typo.h3" Class="mb-6">Site Settings</MudText>
+
+    <MudPaper Elevation="2" Class="pa-6" Style="max-width: 640px;">
+        <MudForm @ref="_form" @bind-IsValid="_isFormValid">
+            <MudStack Spacing="5">
+
+                @* Site Title *@
+                <MudTextField
+                    @bind-Value="_model.SiteTitle"
+                    Label="Site Title"
+                    HelperText="Displayed in the page header and browser tab"
+                    Required="true"
+                    RequiredError="Site title is required"
+                    MaxLength="200"
+                    Counter="200"
+                    Immediate="true"
+                    Variant="Variant.Outlined" />
+
+                @* Logo URL *@
+                <MudTextField
+                    @bind-Value="_model.LogoUrl"
+                    Label="Logo URL"
+                    HelperText="URL to logo image (PNG/SVG, max 32px height)"
+                    Validation="@((string v) => ValidateLogoUrl(v))"
+                    Immediate="true"
+                    Variant="Variant.Outlined" />
+
+                @* Accent Color *@
+                <div>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField
+                            @bind-Value="_model.AccentColor"
+                            Label="Accent Color"
+                            HelperText="CSS hex color — e.g. #3d6ce7 or #abc"
+                            Required="true"
+                            RequiredError="Accent color is required"
+                            Validation="@((string v) => ValidateAccentColor(v))"
+                            Immediate="true"
+                            Variant="Variant.Outlined"
+                            Style="flex: 1;"
+                            @oninput="OnAccentColorInput" />
+
+                        <div style="@GetSwatchStyle()"
+                             title="@_model.AccentColor"
+                             aria-label="Color preview: @_model.AccentColor">
+                        </div>
+                    </MudStack>
+                </div>
+
+                @* Footer Text *@
+                <MudTextField
+                    @bind-Value="_model.FooterText"
+                    Label="Footer Text"
+                    HelperText="Optional text displayed in the page footer"
+                    Lines="2"
+                    MaxLength="500"
+                    Counter="500"
+                    Immediate="true"
+                    Variant="Variant.Outlined" />
+
+                @* Save button *@
+                <div>
+                    <MudButton
+                        Variant="Variant.Filled"
+                        Color="Color.Primary"
+                        Size="Size.Large"
+                        Disabled="@_isSaving"
+                        OnClick="SaveAsync">
+                        @if (_isSaving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Saving…</span>
+                        }
+                        else
+                        {
+                            <span>Save Settings</span>
+                        }
+                    </MudButton>
+                </div>
+
+            </MudStack>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    // ── State ─────────────────────────────────────────────────────────────────
+
+    private bool _isLoading = true;
+    private bool _isSaving = false;
+    private bool _isFormValid = false;
+    private MudForm _form = default!;
+
+    // Working copy — never mutate the entity returned by the service directly.
+    private SettingsFormModel _model = new();
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new BreadcrumbItem("Dashboard", href: "/", icon: Icons.Material.Filled.Dashboard),
+        new BreadcrumbItem("Site Settings", href: null, disabled: true),
+    ];
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settings = await SettingsService.GetAsync();
+            _model = new SettingsFormModel
+            {
+                SiteTitle   = settings.SiteTitle,
+                LogoUrl     = settings.LogoUrl     ?? string.Empty,
+                AccentColor = settings.AccentColor,
+                FooterText  = settings.FooterText  ?? string.Empty,
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load site settings");
+            Snackbar.Add("Failed to load settings. Please refresh the page.", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
+    private void OnAccentColorInput(ChangeEventArgs e)
+    {
+        // Force a re-render so the color swatch updates as the user types.
+        StateHasChanged();
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.ValidateAsync();
+
+        if (!_isFormValid)
+            return;
+
+        _isSaving = true;
+
+        try
+        {
+            var settings = new SiteSettings
+            {
+                SiteTitle   = _model.SiteTitle.Trim(),
+                LogoUrl     = string.IsNullOrWhiteSpace(_model.LogoUrl) ? null : _model.LogoUrl.Trim(),
+                AccentColor = NormalizeHex(_model.AccentColor),
+                FooterText  = string.IsNullOrWhiteSpace(_model.FooterText) ? null : _model.FooterText.Trim(),
+            };
+
+            await SettingsService.UpdateAsync(settings);
+
+            // Reflect the normalized color back into the form model.
+            _model.AccentColor = settings.AccentColor;
+
+            Logger.LogInformation(
+                "Site settings saved (Title: {SiteTitle}, AccentColor: {AccentColor})",
+                settings.SiteTitle, settings.AccentColor);
+
+            Snackbar.Add("Settings saved successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save site settings");
+            Snackbar.Add("Failed to save settings. Please try again.", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    // ── Validation ────────────────────────────────────────────────────────────
+
+    private static string? ValidateLogoUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null; // optional field
+
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            return "Must be a valid absolute URL";
+
+        if (uri.Scheme != "http" && uri.Scheme != "https")
+            return "URL must use HTTP or HTTPS";
+
+        return null;
+    }
+
+    private string? ValidateAccentColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Accent color is required";
+
+        var parsed = ParseHexColor(value);
+        if (parsed is null)
+            return "Enter a valid hex color (#RGB or #RRGGBB)";
+
+        var (r, g, b) = parsed.Value;
+        var luminance  = GetRelativeLuminance(r, g, b);
+
+        // Check against white (#ffffff — rgb 255, 255, 255)
+        var whiteLuminance     = GetRelativeLuminance(255, 255, 255);
+        var contrastWithWhite  = GetContrastRatio(luminance, whiteLuminance);
+
+        if (contrastWithWhite < 4.5)
+            return $"Contrast ratio against white is {contrastWithWhite:F1}:1, minimum required is 4.5:1 (WCAG AA)";
+
+        // Check against light gray background (#f4f6f9 — rgb 244, 246, 249)
+        var grayLuminance     = GetRelativeLuminance(244, 246, 249);
+        var contrastWithGray  = GetContrastRatio(luminance, grayLuminance);
+
+        if (contrastWithGray < 3.0)
+            return $"Contrast ratio against background (#f4f6f9) is {contrastWithGray:F1}:1, minimum required is 3.0:1 (WCAG AA)";
+
+        return null; // valid
+    }
+
+    // ── Color helpers ─────────────────────────────────────────────────────────
+
+    /// <summary>Returns a CSS style string for the color swatch.</summary>
+    private string GetSwatchStyle()
+    {
+        var color = ParseHexColor(_model.AccentColor) is not null
+            ? NormalizeHex(_model.AccentColor)
+            : "#cccccc";
+
+        return $"width: 36px; height: 36px; border-radius: 6px; border: 1px solid #e0e4eb; " +
+               $"background-color: {color}; flex-shrink: 0;";
+    }
+
+    /// <summary>Expands #RGB to #RRGGBB. Returns the input unchanged if already 7 chars.</summary>
+    private static string NormalizeHex(string hex)
+    {
+        var h = hex.StartsWith('#') ? hex[1..] : hex;
+
+        if (h.Length == 3)
+            h = $"{h[0]}{h[0]}{h[1]}{h[1]}{h[2]}{h[2]}";
+
+        return $"#{h.ToLowerInvariant()}";
+    }
+
+    // WCAG 2.1 — relative luminance
+    private static double GetRelativeLuminance(int r, int g, int b)
+    {
+        double RsRGB = r / 255.0;
+        double GsRGB = g / 255.0;
+        double BsRGB = b / 255.0;
+
+        double R = RsRGB <= 0.03928 ? RsRGB / 12.92 : Math.Pow((RsRGB + 0.055) / 1.055, 2.4);
+        double G = GsRGB <= 0.03928 ? GsRGB / 12.92 : Math.Pow((GsRGB + 0.055) / 1.055, 2.4);
+        double B = BsRGB <= 0.03928 ? BsRGB / 12.92 : Math.Pow((BsRGB + 0.055) / 1.055, 2.4);
+
+        return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+    }
+
+    // WCAG 2.1 — contrast ratio
+    private static double GetContrastRatio(double l1, double l2)
+    {
+        var lighter = Math.Max(l1, l2);
+        var darker  = Math.Min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    /// <summary>
+    /// Parses a CSS hex color string in #RGB or #RRGGBB format.
+    /// Returns null if the string is not a valid hex color.
+    /// </summary>
+    private static (int r, int g, int b)? ParseHexColor(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return null;
+
+        if (hex.StartsWith('#'))
+            hex = hex[1..];
+
+        if (hex.Length == 3)
+            hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+
+        if (hex.Length != 6)
+            return null;
+
+        try
+        {
+            var r = Convert.ToInt32(hex[..2], 16);
+            var g = Convert.ToInt32(hex[2..4], 16);
+            var b = Convert.ToInt32(hex[4..6], 16);
+            return (r, g, b);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // ── Form model ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Decoupled working copy for the form. Prevents mutating the entity returned by
+    /// the service and avoids accidental overposting.
+    /// </summary>
+    private sealed class SettingsFormModel
+    {
+        public string SiteTitle   { get; set; } = "Status Tracker";
+        public string LogoUrl     { get; set; } = string.Empty;
+        public string AccentColor { get; set; } = "#3d6ce7";
+        public string FooterText  { get; set; } = string.Empty;
+    }
+}

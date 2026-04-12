@@ -51,6 +51,7 @@ try
     // Application services
     builder.Services.AddScoped<IEndpointService, EndpointService>();
     builder.Services.AddScoped<ICheckResultService, CheckResultService>();
+    builder.Services.AddScoped<ISiteSettingsService, SiteSettingsService>();
 
     // Background services
     builder.Services.AddHostedService<HealthCheckEngine>();
