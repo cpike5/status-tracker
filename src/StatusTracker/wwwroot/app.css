@@ -28,3 +28,52 @@ html, body {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+/* ErrorBoundary fallback */
+.error-boundary-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    text-align: center;
+    padding: 2rem;
+    font-family: var(--font-body);
+    color: var(--text-secondary, #64748b);
+}
+
+.error-boundary-fallback h2 {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+    margin: 0 0 0.5rem;
+}
+
+.error-boundary-fallback p {
+    margin: 0 0 1.5rem;
+    font-size: 1rem;
+}
+
+.error-boundary-reset {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--accent-color, #3d6ce7);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent-color, #3d6ce7);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.error-boundary-reset:hover {
+    background: var(--accent-color, #3d6ce7);
+    color: #fff;
+}
+
+.error-boundary-reset:focus-visible {
+    outline: 2px solid var(--accent-color, #3d6ce7);
+    outline-offset: 2px;
+}

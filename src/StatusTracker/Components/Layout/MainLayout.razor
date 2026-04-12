@@ -3,6 +3,7 @@
 @using StatusTracker.Entities
 @inject ISiteSettingsService SettingsService
 @inject IJSRuntime JS
+@inject ILogger<MainLayout> Logger
 
 <MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
@@ -10,8 +11,9 @@
 <MudSnackbarProvider />
 
 <CascadingValue Value="@_siteTitle" Name="SiteTitle">
+<CascadingValue Value="@_browserTimeZone" Name="BrowserTimeZone">
 <div class="app-layout">
-    <SiteHeader SiteTitle="@_siteTitle" LogoUrl="@_logoUrl" />
+    <SiteHeader SiteTitle="@_siteTitle" LogoUrl="@_logoUrl" BrowserTimeZone="@_browserTimeZone" />
 
     <main class="main-content page-enter">
         @Body
@@ -20,6 +22,7 @@
     <SiteFooter FooterText="@_footerText" />
 </div>
 </CascadingValue>
+</CascadingValue>
 
 @code {
     private MudTheme _theme = ThemeFactory.Build();
@@ -27,6 +30,7 @@
     private string? _logoUrl;
     private string? _footerText;
     private string? _accentColor;
+    private TimeZoneInfo? _browserTimeZone;
 
     protected override async Task OnInitializedAsync()
     {
@@ -39,15 +43,17 @@
             _accentColor = settings.AccentColor;
             _theme = ThemeFactory.Build(settings.AccentColor);
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall back to defaults if settings can't be loaded
+            Logger.LogWarning(ex, "Failed to load site settings; using defaults");
         }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _accentColor is not null)
+        if (!firstRender) return;
+
+        if (_accentColor is not null)
         {
             try
             {
@@ -57,6 +63,20 @@
             {
                 // Non-critical — CSS custom property won't update
             }
+        }
+
+        try
+        {
+            var tzName = await JS.InvokeAsync<string?>("getBrowserTimezone");
+            if (tzName is not null)
+            {
+                _browserTimeZone = TimeZoneInfo.FindSystemTimeZoneById(tzName);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to resolve browser timezone; falling back to UTC");
         }
     }
 }

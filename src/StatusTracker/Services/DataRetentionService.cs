@@ -64,20 +64,42 @@ public sealed class DataRetentionService : BackgroundService
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             int deleted;
+            var batchFailed = false;
             do
             {
-                deleted = await db.CheckResults
-                    .Where(r => r.Timestamp < cutoff)
-                    .OrderBy(r => r.Timestamp)
-                    .Take(BatchSize)
-                    .ExecuteDeleteAsync(ct);
-                totalDeleted += deleted;
+                try
+                {
+                    deleted = await db.CheckResults
+                        .Where(r => r.Timestamp < cutoff)
+                        .OrderBy(r => r.Timestamp)
+                        .Take(BatchSize)
+                        .ExecuteDeleteAsync(ct);
+                    totalDeleted += deleted;
+                }
+                catch (Exception batchEx) when (batchEx is not OperationCanceledException)
+                {
+                    _logger.LogWarning(batchEx,
+                        "Data retention batch failed after deleting {TotalDeleted} records; stopping pruning cycle",
+                        totalDeleted);
+                    batchFailed = true;
+                    break;
+                }
             } while (deleted > 0 && !ct.IsCancellationRequested);
 
-            _logger.LogInformation(
-                "Data retention pruned {TotalDeleted} records older than {CutoffDate:u}",
-                totalDeleted,
-                cutoff);
+            if (batchFailed)
+            {
+                _logger.LogWarning(
+                    "Data retention completed partially: pruned {TotalDeleted} records older than {CutoffDate:u} before batch error",
+                    totalDeleted,
+                    cutoff);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Data retention pruned {TotalDeleted} records older than {CutoffDate:u}",
+                    totalDeleted,
+                    cutoff);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
