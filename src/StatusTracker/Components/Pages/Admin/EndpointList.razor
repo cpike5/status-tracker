@@ -1,0 +1,314 @@
+@page "/admin/endpoints"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using StatusTracker.Services
+@using StatusTracker.Entities
+@inject IEndpointService EndpointService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject ILogger<EndpointList> Log
+
+<PageTitle>Manage Endpoints</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+
+    @* ── Breadcrumbs ── *@
+    <MudBreadcrumbs Items="_breadcrumbs" Class="mb-4 px-0" />
+
+    @* ── Page header ── *@
+    <div class="d-flex align-center justify-space-between mb-6">
+        <div>
+            <MudText Typo="Typo.h3">Manage Endpoints</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-1">
+                Add, edit, or remove monitored endpoints.
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="NavigateToCreate">
+            Add Endpoint
+        </MudButton>
+    </div>
+
+    @* ── Loading state ── *@
+    @if (_loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+            Loading endpoints…
+        </MudText>
+    }
+    @* ── Empty state ── *@
+    else if (_endpoints.Count == 0)
+    {
+        <MudPaper Class="pa-10 d-flex flex-column align-center" Elevation="0"
+                  Style="border: 1.5px dashed var(--mud-palette-divider); border-radius: var(--mud-default-borderradius);">
+            <MudIcon Icon="@Icons.Material.Outlined.MonitorHeart"
+                     Color="Color.Secondary"
+                     Style="font-size: 3rem;"
+                     Class="mb-4" />
+            <MudText Typo="Typo.h6" Class="mb-1">No endpoints yet</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+                Add your first monitored endpoint to get started.
+            </MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="NavigateToCreate">
+                Add Endpoint
+            </MudButton>
+        </MudPaper>
+    }
+    @* ── Data table ── *@
+    else
+    {
+        <MudTable T="MonitoredEndpoint"
+                  Items="_endpoints"
+                  Dense="false"
+                  Hover="true"
+                  Striped="false"
+                  Breakpoint="Breakpoint.Sm"
+                  SortLabel="Sort by"
+                  Elevation="1">
+
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel T="MonitoredEndpoint"
+                                       SortBy="@(e => e.Name)">
+                        Name
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>URL</MudTh>
+                <MudTh>
+                    <MudTableSortLabel T="MonitoredEndpoint"
+                                       SortBy="@(e => e.Group ?? string.Empty)">
+                        Group
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel T="MonitoredEndpoint"
+                                       SortBy="@(e => e.CheckIntervalSeconds)">
+                        Interval
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    <MudTableSortLabel T="MonitoredEndpoint"
+                                       SortBy="@(e => e.SortOrder)">
+                        Order
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>Enabled</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Name">
+                    <MudText Typo="Typo.body1" Style="font-weight: 500;">
+                        @context.Name
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="URL">
+                    <MudTooltip Text="@context.Url" Placement="Placement.Top">
+                        <MudText Typo="Typo.body2"
+                                 Color="Color.Secondary"
+                                 Style="font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; display: block;">
+                            @TruncateUrl(context.Url)
+                        </MudText>
+                    </MudTooltip>
+                </MudTd>
+
+                <MudTd DataLabel="Group">
+                    @if (!string.IsNullOrWhiteSpace(context.Group))
+                    {
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Color="Color.Default">
+                            @context.Group
+                        </MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Tertiary">—</MudText>
+                    }
+                </MudTd>
+
+                <MudTd DataLabel="Interval">
+                    <MudText Typo="Typo.body2" Style="font-family: var(--font-mono);">
+                        @FormatInterval(context.CheckIntervalSeconds)
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Order">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary"
+                             Style="font-family: var(--font-mono);">
+                        @context.SortOrder
+                    </MudText>
+                </MudTd>
+
+                <MudTd DataLabel="Enabled">
+                    <MudSwitch T="bool"
+                               Value="@context.IsEnabled"
+                               ValueChanged="@(v => OnToggleEnabled(context, v))"
+                               Disabled="@_togglingIds.Contains(context.Id)"
+                               Color="Color.Success"
+                               UnCheckedColor="Color.Default"
+                               Size="Size.Small" />
+                </MudTd>
+
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="0">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       Color="Color.Default"
+                                       aria-label="Edit endpoint"
+                                       OnClick="@(() => Navigation.NavigateTo($"/admin/endpoints/{context.Id}/edit"))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       aria-label="Delete endpoint"
+                                       OnClick="@(() => OnDeleteClicked(context))" />
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <MudText Color="Color.Secondary">No endpoints match the current filter.</MudText>
+            </NoRecordsContent>
+
+            <PagerContent>
+                <MudTablePager PageSizeOptions="@(new int[] { 10, 25, 50 })" />
+            </PagerContent>
+
+        </MudTable>
+    }
+
+</MudContainer>
+
+@code {
+    private List<MonitoredEndpoint> _endpoints = [];
+    private bool _loading = true;
+    private readonly HashSet<int> _togglingIds = [];
+
+    private readonly List<BreadcrumbItem> _breadcrumbs =
+    [
+        new BreadcrumbItem("Dashboard", href: "/"),
+        new BreadcrumbItem("Manage Endpoints", href: null, disabled: true),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEndpointsAsync();
+    }
+
+    private async Task LoadEndpointsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _endpoints = await EndpointService.GetAllAsync();
+            Log.LogInformation("Loaded {EndpointCount} endpoints for admin list", _endpoints.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Failed to load endpoints");
+            Snackbar.Add("Failed to load endpoints. Please refresh and try again.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnToggleEnabled(MonitoredEndpoint endpoint, bool newValue)
+    {
+        if (!_togglingIds.Add(endpoint.Id))
+            return;
+
+        endpoint.IsEnabled = newValue;
+
+        try
+        {
+            await EndpointService.ToggleEnabledAsync(endpoint.Id);
+            Log.LogInformation(
+                "Toggled endpoint {EndpointId} ({EndpointName}) IsEnabled to {IsEnabled}",
+                endpoint.Id, endpoint.Name, newValue);
+        }
+        catch (Exception ex)
+        {
+            endpoint.IsEnabled = !newValue;
+            Log.LogError(ex, "Failed to toggle endpoint {EndpointId}", endpoint.Id);
+            Snackbar.Add(string.Concat("Failed to update \"", endpoint.Name, "\". Please try again."), Severity.Error);
+        }
+        finally
+        {
+            _togglingIds.Remove(endpoint.Id);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task OnDeleteClicked(MonitoredEndpoint endpoint)
+    {
+        var deleteMessage = string.Concat(
+            "Are you sure you want to delete \"", endpoint.Name,
+            "\"? This will also remove all associated check history and cannot be undone.");
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete Endpoint",
+            deleteMessage,
+            yesText: "Delete",
+            noText: null,
+            cancelText: "Cancel",
+            options: new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall });
+
+        if (confirmed is not true)
+            return;
+
+        try
+        {
+            await EndpointService.DeleteAsync(endpoint.Id);
+            _endpoints.Remove(endpoint);
+            Log.LogInformation("Deleted endpoint {EndpointId} ({EndpointName})", endpoint.Id, endpoint.Name);
+            Snackbar.Add(string.Concat("\"", endpoint.Name, "\" was deleted."), Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Failed to delete endpoint {EndpointId}", endpoint.Id);
+            Snackbar.Add(string.Concat("Failed to delete \"", endpoint.Name, "\". Please try again."), Severity.Error);
+        }
+    }
+
+    private void NavigateToCreate() => Navigation.NavigateTo("/admin/endpoints/create");
+
+    // ── Helpers ──
+
+    private static string TruncateUrl(string url)
+    {
+        const int MaxLength = 40;
+
+        // Strip scheme for display
+        var display = url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? url[8..]
+            : url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                ? url[7..]
+                : url;
+
+        return display.Length > MaxLength
+            ? string.Concat(display.AsSpan(0, MaxLength - 1), "\u2026")
+            : display;
+    }
+
+    private static string FormatInterval(int seconds)
+    {
+        if (seconds < 60)
+            return seconds.ToString() + "s";
+        if (seconds < 3600)
+            return (seconds / 60).ToString() + "m";
+        return (seconds / 3600).ToString() + "h";
+    }
+}

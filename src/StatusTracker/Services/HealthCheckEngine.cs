@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using Polly;
+using Serilog.Context;
 using StatusTracker.Entities;
 using StatusTracker.Infrastructure;
 
@@ -95,87 +96,100 @@ public sealed class HealthCheckEngine : BackgroundService
 
     private async Task CheckEndpointAsync(MonitoredEndpoint endpoint, CancellationToken ct)
     {
-        try
+        using (LogContext.PushProperty("EndpointId", endpoint.Id))
+        using (LogContext.PushProperty("EndpointName", endpoint.Name))
+        using (LogContext.PushProperty("EndpointUrl", endpoint.Url))
         {
-            var pipeline = _pipelineCache.GetOrAdd(
-                (endpoint.RetryCount, endpoint.TimeoutSeconds),
-                key => PollyPolicies.BuildHealthCheckPipeline(key.RetryCount, key.TimeoutSeconds, _logger, endpoint.Name));
-
-            var httpClient = _httpClientFactory.CreateClient("HealthCheck");
-
-            var stopwatch = Stopwatch.StartNew();
-
-            using var response = await pipeline.ExecuteAsync(
-                async innerCt => await httpClient.GetAsync(endpoint.Url, HttpCompletionOption.ResponseHeadersRead, innerCt),
-                ct);
-            stopwatch.Stop();
-
-            var responseTimeMs = (int)stopwatch.ElapsedMilliseconds;
-            var statusCode = (int)response.StatusCode;
-            var isHealthy = statusCode == endpoint.ExpectedStatusCode;
-
-            // Evaluate body match only if configured — read body after timing.
-            if (isHealthy && !string.IsNullOrEmpty(endpoint.ExpectedBodyMatch))
-            {
-                var body = await response.Content.ReadAsStringAsync(ct);
-                isHealthy = EvaluateBodyMatch(body, endpoint.ExpectedBodyMatch);
-            }
-
-            var result = new CheckResult
-            {
-                EndpointId = endpoint.Id,
-                Timestamp = DateTime.UtcNow,
-                ResponseTimeMs = responseTimeMs,
-                HttpStatusCode = statusCode,
-                IsHealthy = isHealthy,
-                ErrorMessage = null
-            };
-
-            await RecordResultAsync(result);
-            _notifier.NotifyUpdate(endpoint.Id);
-
-            _logger.LogInformation(
-                "Health check completed: {EndpointId} {EndpointName} — IsHealthy: {IsHealthy}, ResponseTimeMs: {ResponseTimeMs}",
-                endpoint.Id,
-                endpoint.Name,
-                isHealthy,
-                responseTimeMs);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Health check failed for {EndpointId} {EndpointName}: {Error}",
-                endpoint.Id,
-                endpoint.Name,
-                ex.Message);
-
-            var failedResult = new CheckResult
-            {
-                EndpointId = endpoint.Id,
-                Timestamp = DateTime.UtcNow,
-                ResponseTimeMs = null,
-                HttpStatusCode = null,
-                IsHealthy = false,
-                ErrorMessage = ex.Message
-            };
-
             try
             {
-                await RecordResultAsync(failedResult);
-                _notifier.NotifyUpdate(endpoint.Id);
+                var pipeline = _pipelineCache.GetOrAdd(
+                    (endpoint.RetryCount, endpoint.TimeoutSeconds),
+                    key => PollyPolicies.BuildHealthCheckPipeline(key.RetryCount, key.TimeoutSeconds, _logger, endpoint.Name));
+
+                var httpClient = _httpClientFactory.CreateClient("HealthCheck");
+
+                var stopwatch = Stopwatch.StartNew();
+
+                using var response = await pipeline.ExecuteAsync(
+                    async innerCt => await httpClient.GetAsync(endpoint.Url, HttpCompletionOption.ResponseHeadersRead, innerCt),
+                    ct);
+                stopwatch.Stop();
+
+                var responseTimeMs = (int)stopwatch.ElapsedMilliseconds;
+                var statusCode = (int)response.StatusCode;
+                var isHealthy = statusCode == endpoint.ExpectedStatusCode;
+
+                // Evaluate body match only if configured — read body after timing.
+                if (isHealthy && !string.IsNullOrEmpty(endpoint.ExpectedBodyMatch))
+                {
+                    var body = await response.Content.ReadAsStringAsync(ct);
+                    isHealthy = EvaluateBodyMatch(body, endpoint.ExpectedBodyMatch);
+                }
+
+                using (LogContext.PushProperty("CheckDurationMs", responseTimeMs))
+                using (LogContext.PushProperty("IsHealthy", isHealthy))
+                {
+                    var result = new CheckResult
+                    {
+                        EndpointId = endpoint.Id,
+                        Timestamp = DateTime.UtcNow,
+                        ResponseTimeMs = responseTimeMs,
+                        HttpStatusCode = statusCode,
+                        IsHealthy = isHealthy,
+                        ErrorMessage = null
+                    };
+
+                    await RecordResultAsync(result);
+                    _notifier.NotifyUpdate(endpoint.Id);
+
+                    _logger.LogInformation(
+                        "Health check completed: {EndpointId} {EndpointName} — IsHealthy: {IsHealthy}, ResponseTimeMs: {ResponseTimeMs}",
+                        endpoint.Id,
+                        endpoint.Name,
+                        isHealthy,
+                        responseTimeMs);
+                }
             }
-            catch (Exception recordEx)
+            catch (Exception ex)
             {
-                _logger.LogError(recordEx,
-                    "Failed to record error result for {EndpointId} {EndpointName}",
-                    endpoint.Id,
-                    endpoint.Name);
+                using (LogContext.PushProperty("CheckDurationMs", (int?)null))
+                using (LogContext.PushProperty("IsHealthy", false))
+                {
+                    _logger.LogError(ex,
+                        "Health check failed for {EndpointId} {EndpointName}: {Error}",
+                        endpoint.Id,
+                        endpoint.Name,
+                        ex.Message);
+
+                    var failedResult = new CheckResult
+                    {
+                        EndpointId = endpoint.Id,
+                        Timestamp = DateTime.UtcNow,
+                        ResponseTimeMs = null,
+                        HttpStatusCode = null,
+                        IsHealthy = false,
+                        ErrorMessage = ex.Message
+                    };
+
+                    try
+                    {
+                        await RecordResultAsync(failedResult);
+                        _notifier.NotifyUpdate(endpoint.Id);
+                    }
+                    catch (Exception recordEx)
+                    {
+                        _logger.LogError(recordEx,
+                            "Failed to record error result for {EndpointId} {EndpointName}",
+                            endpoint.Id,
+                            endpoint.Name);
+                    }
+                }
             }
-        }
-        finally
-        {
-            // Always advance the next check time so the endpoint is not retried immediately.
-            _nextCheckTimes[endpoint.Id] = DateTime.UtcNow.AddSeconds(endpoint.CheckIntervalSeconds);
+            finally
+            {
+                // Always advance the next check time so the endpoint is not retried immediately.
+                _nextCheckTimes[endpoint.Id] = DateTime.UtcNow.AddSeconds(endpoint.CheckIntervalSeconds);
+            }
         }
     }
 

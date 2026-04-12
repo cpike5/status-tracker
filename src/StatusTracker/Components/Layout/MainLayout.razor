@@ -1,4 +1,8 @@
 @inherits LayoutComponentBase
+@using StatusTracker.Services
+@using StatusTracker.Entities
+@inject ISiteSettingsService SettingsService
+@inject IJSRuntime JS
 
 <MudThemeProvider Theme="@_theme" />
 <MudPopoverProvider />
@@ -6,15 +10,51 @@
 <MudSnackbarProvider />
 
 <div class="app-layout">
-    <SiteHeader />
+    <SiteHeader SiteTitle="@_siteTitle" LogoUrl="@_logoUrl" />
 
     <main class="main-content page-enter">
         @Body
     </main>
 
-    <SiteFooter />
+    <SiteFooter FooterText="@_footerText" />
 </div>
 
 @code {
     private MudTheme _theme = ThemeFactory.Build();
+    private string _siteTitle = "Status Tracker";
+    private string? _logoUrl;
+    private string? _footerText;
+    private string? _accentColor;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var settings = await SettingsService.GetAsync();
+            _siteTitle = settings.SiteTitle;
+            _logoUrl = settings.LogoUrl;
+            _footerText = settings.FooterText;
+            _accentColor = settings.AccentColor;
+            _theme = ThemeFactory.Build(settings.AccentColor);
+        }
+        catch
+        {
+            // Fall back to defaults if settings can't be loaded
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _accentColor is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("setAccentColor", _accentColor);
+            }
+            catch
+            {
+                // Non-critical — CSS custom property won't update
+            }
+        }
+    }
 }

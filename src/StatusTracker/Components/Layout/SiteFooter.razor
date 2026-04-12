@@ -1,6 +1,9 @@
 <footer class="site-footer">
     <div class="footer-content">
-        @* TODO: Replace with SiteSettings.FooterText (Phase 6, Task 6.5) *@
-        Powered by Status Tracker
+        @(FooterText ?? "Powered by Status Tracker")
     </div>
 </footer>
+
+@code {
+    [Parameter] public string? FooterText { get; set; }
+}

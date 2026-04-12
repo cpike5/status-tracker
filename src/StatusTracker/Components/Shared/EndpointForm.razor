@@ -1,0 +1,229 @@
+@using FluentValidation
+@using StatusTracker.Entities
+@using StatusTracker.Validators
+
+@inject IValidator<MonitoredEndpoint> Validator
+
+<MudForm @ref="_form" @bind-IsValid="_isValid" @bind-Errors="_errors">
+    <MudGrid Spacing="3">
+
+        @* ── Row 1: Name + Group ── *@
+        <MudItem xs="12" sm="8">
+            <MudTextField T="string"
+                          Label="Name"
+                          @bind-Value="Endpoint.Name"
+                          Required="true"
+                          RequiredError="Name is required"
+                          Validation="@(new Func<string, IEnumerable<string>>(ValidateName))"
+                          Variant="Variant.Outlined"
+                          HelperText="Display name shown on the status page" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudTextField T="string"
+                          Label="Group"
+                          @bind-Value="Endpoint.Group"
+                          Validation="@(new Func<string?, IEnumerable<string>>(ValidateGroup))"
+                          Variant="Variant.Outlined"
+                          HelperText="Optional grouping label" />
+        </MudItem>
+
+        @* ── Row 2: URL (full width) ── *@
+        <MudItem xs="12">
+            <MudTextField T="string"
+                          Label="URL"
+                          @bind-Value="Endpoint.Url"
+                          Required="true"
+                          RequiredError="URL is required"
+                          Validation="@(new Func<string, IEnumerable<string>>(ValidateUrl))"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Link"
+                          HelperText="Must be a valid HTTP or HTTPS URL" />
+        </MudItem>
+
+        @* ── Row 3: Check Interval + Timeout + Retry Count ── *@
+        <MudItem xs="12" sm="4">
+            <MudNumericField T="int"
+                             Label="Check Interval (seconds)"
+                             @bind-Value="Endpoint.CheckIntervalSeconds"
+                             Min="10" Max="3600"
+                             Validation="@(new Func<int, IEnumerable<string>>(ValidateCheckInterval))"
+                             Variant="Variant.Outlined"
+                             HelperText="10 – 3600 seconds" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudNumericField T="int"
+                             Label="Timeout (seconds)"
+                             @bind-Value="Endpoint.TimeoutSeconds"
+                             Min="1" Max="60"
+                             Validation="@(new Func<int, IEnumerable<string>>(ValidateTimeout))"
+                             Variant="Variant.Outlined"
+                             HelperText="1 – 60 seconds; must be less than check interval" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudNumericField T="int"
+                             Label="Retry Count"
+                             @bind-Value="Endpoint.RetryCount"
+                             Min="0" Max="5"
+                             Validation="@(new Func<int, IEnumerable<string>>(ValidateRetryCount))"
+                             Variant="Variant.Outlined"
+                             HelperText="0 – 5 retries on failure" />
+        </MudItem>
+
+        @* ── Row 4: Expected Status Code + Sort Order ── *@
+        <MudItem xs="12" sm="6">
+            <MudNumericField T="int"
+                             Label="Expected Status Code"
+                             @bind-Value="Endpoint.ExpectedStatusCode"
+                             Min="100" Max="599"
+                             Validation="@(new Func<int, IEnumerable<string>>(ValidateExpectedStatusCode))"
+                             Variant="Variant.Outlined"
+                             HelperText="HTTP status code considered healthy (100 – 599)" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudNumericField T="int"
+                             Label="Sort Order"
+                             @bind-Value="Endpoint.SortOrder"
+                             Min="0" Max="9999"
+                             Validation="@(new Func<int, IEnumerable<string>>(ValidateSortOrder))"
+                             Variant="Variant.Outlined"
+                             HelperText="Lower numbers appear first (0 – 9999)" />
+        </MudItem>
+
+        @* ── Row 5: Expected Body Match (full width) ── *@
+        <MudItem xs="12">
+            <MudTextField T="string"
+                          Label="Expected Body Match"
+                          @bind-Value="Endpoint.ExpectedBodyMatch"
+                          Validation="@(new Func<string?, IEnumerable<string>>(ValidateExpectedBodyMatch))"
+                          Variant="Variant.Outlined"
+                          HelperText="Regular expression or plain text to match in the response body (optional)" />
+        </MudItem>
+
+        @* ── Row 6: Enabled + Public toggles ── *@
+        <MudItem xs="12" sm="6">
+            <MudSwitch T="bool"
+                       @bind-Value="Endpoint.IsEnabled"
+                       Label="Enabled"
+                       Color="Color.Success" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudSwitch T="bool"
+                       @bind-Value="Endpoint.IsPublic"
+                       Label="Visible to public"
+                       Color="Color.Info" />
+        </MudItem>
+
+        @* ── Validation alert ── *@
+        @if (_submitAttempted && (_errors?.Length > 0))
+        {
+            <MudItem xs="12">
+                <MudAlert Severity="MudBlazor.Severity.Error" Dense="true">
+                    Please fix the errors above before saving.
+                </MudAlert>
+            </MudItem>
+        }
+
+        @* ── Action buttons ── *@
+        <MudItem xs="12">
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@(IsEdit ? Icons.Material.Filled.Save : Icons.Material.Filled.Add)"
+                           OnClick="HandleSubmitAsync"
+                           Disabled="_isSubmitting">
+                    @if (_isSubmitting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    @(IsEdit ? "Save Changes" : "Create Endpoint")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Href="/admin/endpoints"
+                           Disabled="_isSubmitting">
+                    Cancel
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+    </MudGrid>
+</MudForm>
+
+@code {
+    [Parameter, EditorRequired] public MonitoredEndpoint Endpoint { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+
+    private MudForm _form = null!;
+    private bool _isValid;
+    private string[] _errors = [];
+    private bool _submitAttempted;
+    private bool _isSubmitting;
+
+    private async Task HandleSubmitAsync()
+    {
+        _submitAttempted = true;
+        await _form.ValidateAsync();
+
+        if (!_isValid)
+            return;
+
+        _isSubmitting = true;
+        try
+        {
+            await OnValidSubmit.InvokeAsync();
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    // ── Per-field validation helpers ─────────────────────────────────────────
+
+    private IEnumerable<string> ValidateName(string value)
+        => ValidateProperty(nameof(MonitoredEndpoint.Name));
+
+    private IEnumerable<string> ValidateUrl(string value)
+        => ValidateProperty(nameof(MonitoredEndpoint.Url));
+
+    private IEnumerable<string> ValidateGroup(string? value)
+        => ValidateProperty(nameof(MonitoredEndpoint.Group));
+
+    private IEnumerable<string> ValidateCheckInterval(int value)
+        => ValidateProperty(nameof(MonitoredEndpoint.CheckIntervalSeconds));
+
+    private IEnumerable<string> ValidateExpectedStatusCode(int value)
+        => ValidateProperty(nameof(MonitoredEndpoint.ExpectedStatusCode));
+
+    private IEnumerable<string> ValidateExpectedBodyMatch(string? value)
+        => ValidateProperty(nameof(MonitoredEndpoint.ExpectedBodyMatch));
+
+    private IEnumerable<string> ValidateTimeout(int value)
+        => ValidateProperty(nameof(MonitoredEndpoint.TimeoutSeconds));
+
+    private IEnumerable<string> ValidateRetryCount(int value)
+        => ValidateProperty(nameof(MonitoredEndpoint.RetryCount));
+
+    private IEnumerable<string> ValidateSortOrder(int value)
+        => ValidateProperty(nameof(MonitoredEndpoint.SortOrder));
+
+    /// <summary>
+    /// Validates a single property on the current Endpoint model using FluentValidation.
+    /// The Endpoint object is already updated with the latest bound value when MudBlazor
+    /// calls the Validation func, so we can validate the full model and filter to the
+    /// relevant property errors.
+    /// </summary>
+    private IEnumerable<string> ValidateProperty(string propertyName)
+    {
+        var result = Validator.Validate(
+            Endpoint,
+            options => options.IncludeProperties(propertyName));
+
+        return result.Errors
+            .Where(e => e.PropertyName == propertyName)
+            .Select(e => e.ErrorMessage);
+    }
+}

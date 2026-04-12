@@ -1,3 +1,4 @@
+using Elastic.Apm.NetCoreAll;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -50,12 +51,18 @@ try
     // Application services
     builder.Services.AddScoped<IEndpointService, EndpointService>();
     builder.Services.AddScoped<ICheckResultService, CheckResultService>();
+    builder.Services.AddScoped<ISiteSettingsService, SiteSettingsService>();
 
     // Real-time update notifier — singleton so HealthCheckEngine (singleton) can signal Blazor circuits (scoped)
     builder.Services.AddSingleton<IStatusUpdateNotifier, StatusUpdateNotifier>();
 
     // Background services
     builder.Services.AddHostedService<HealthCheckEngine>();
+    builder.Services.AddHostedService<DataRetentionService>();
+
+    // Infrastructure health checks
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!);
 
     // Configuration pipeline
     builder.Services.Configure<HealthCheckOptions>(
@@ -223,6 +230,11 @@ try
         app.UseExceptionHandler("/Error", createScopeForErrors: true);
     }
 
+    if (!string.IsNullOrEmpty(app.Configuration["ElasticApm:ServerUrl"]))
+    {
+        app.UseAllElasticApm(app.Configuration);
+    }
+
     app.UseRouting();
     app.UseAuthentication();
     app.UseAuthorization();
@@ -252,6 +264,8 @@ try
         await context.SignOutAsync(IdentityConstants.ExternalScheme);
         return Results.Redirect("/login");
     }).AllowAnonymous();
+
+    app.MapHealthChecks("/health").AllowAnonymous();
 
     await app.RunAsync();
 }
