@@ -9,6 +9,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+<CascadingValue Value="@_siteTitle" Name="SiteTitle">
 <div class="app-layout">
     <SiteHeader SiteTitle="@_siteTitle" LogoUrl="@_logoUrl" />
 
@@ -18,10 +19,11 @@
 
     <SiteFooter FooterText="@_footerText" />
 </div>
+</CascadingValue>
 
 @code {
     private MudTheme _theme = ThemeFactory.Build();
-    private string _siteTitle = "Status Tracker";
+    private string _siteTitle = "Status Page";
     private string? _logoUrl;
     private string? _footerText;
     private string? _accentColor;

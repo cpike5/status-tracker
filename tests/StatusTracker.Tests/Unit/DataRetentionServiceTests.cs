@@ -3,6 +3,7 @@ using StatusTracker.Services;
 
 namespace StatusTracker.Tests.Unit;
 
+[Trait("Category", "Unit")]
 public class DataRetentionServiceTests
 {
     // ── ParseDailySchedule ───────────────────────────────────────────────────

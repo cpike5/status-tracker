@@ -16,15 +16,25 @@ services:
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=statustracker;Username=app;Password=${POSTGRES_PASSWORD}"
       Seq__ServerUrl: "http://seq:5341"
       ALLOWED_EMAILS: "${ALLOWED_EMAILS}"
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
-      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
-      MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID}"
-      MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET}"
-      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
-      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
+      # OAuth credentials — ASP.NET Core maps Google__ClientId -> Google:ClientId, etc.
+      # These must use the __ separator so Program.cs can read them as nested config keys.
+      Google__ClientId: "${GOOGLE_CLIENT_ID}"
+      Google__ClientSecret: "${GOOGLE_CLIENT_SECRET}"
+      Microsoft__ClientId: "${MICROSOFT_CLIENT_ID}"
+      Microsoft__ClientSecret: "${MICROSOFT_CLIENT_SECRET}"
+      GitHub__ClientId: "${GITHUB_CLIENT_ID}"
+      GitHub__ClientSecret: "${GITHUB_CLIENT_SECRET}"
       ElasticApm__ServerUrl: "${ElasticApm__ServerUrl:-}"
-      ElasticApm__ServiceName: "status-tracker"
+      ElasticApm__ServiceName: "${ElasticApm__ServiceName:-status-tracker}"
       ElasticApm__Environment: "${ElasticApm__Environment:-development}"
+    healthcheck:
+      # Mirror the Dockerfile HEALTHCHECK so that service dependency checks work correctly.
+      # start_period allows for EF migrations and DB connection on a cold start.
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,7 +42,6 @@ services:
         condition: service_started
     networks:
       - internal
-      - elastic
 
   # PostgreSQL
   postgres:
@@ -40,7 +49,7 @@ services:
     container_name: status-tracker-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"           # local dev access; remove or restrict in production
+      - "127.0.0.1:5432:5432" # local dev access; remove or restrict in production
     environment:
       POSTGRES_DB: statustracker
       POSTGRES_USER: app
@@ -56,13 +65,16 @@ services:
       - internal
 
   # Seq — structured log viewer
+  # Ports 5341 (ingestion) and 8081 (UI) are exposed to the host for convenience.
+  # In production, consider removing the 8081 mapping or placing Seq behind nginx
+  # with authentication to avoid exposing the log viewer to the public internet.
   seq:
     image: datalust/seq:latest
     container_name: status-tracker-seq
     restart: unless-stopped
     ports:
-      - "5341:5341"
-      - "8081:80"
+      - "127.0.0.1:5341:5341"   # ingestion — bind to loopback; app uses internal network
+      - "127.0.0.1:8081:80"     # UI — bind to loopback; access via SSH tunnel or nginx proxy
     environment:
       ACCEPT_EULA: Y
       SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_PASSWORD}
@@ -78,5 +90,8 @@ volumes:
 networks:
   internal:
     driver: bridge
-  elastic:
-    external: true
+  # To use Elastic APM, create an external network and add it to the status-tracker service:
+  #   docker network create elastic
+  # Then uncomment the following and add "- elastic" to status-tracker.networks above:
+  # elastic:
+  #   external: true
