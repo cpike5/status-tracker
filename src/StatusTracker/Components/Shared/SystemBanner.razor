@@ -1,0 +1,69 @@
+@rendermode InteractiveServer
+@using StatusTracker.Services
+
+<div class="system-banner system-banner--@_statusModifier"
+     role="status"
+     aria-live="polite"
+     aria-label="@_statusLabel">
+    <div class="system-banner__body">
+        <span class="system-banner__icon" aria-hidden="true">@_statusIcon</span>
+        <span class="system-banner__message">@_statusLabel</span>
+    </div>
+    @if (Endpoints.Count > 0)
+    {
+        <span class="system-banner__meta">@_metaText</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public List<EndpointStatusDto> Endpoints { get; set; } = [];
+
+    private string _statusModifier = "operational";
+    private string _statusLabel = "All systems operational";
+    private string _statusIcon = "\u2713"; // check mark
+    private string _metaText = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        var aggregate = ComputeAggregate();
+
+        (_statusModifier, _statusLabel, _statusIcon) = aggregate switch
+        {
+            EndpointStatus.Down => ("disruption", "Service disruption detected", "\u26a0"),      // warning sign
+            EndpointStatus.Degraded => ("degraded", "Partial degradation detected", "\u26a0"),   // warning sign
+            _ => ("operational", "All systems operational", "\u2713")                            // check mark
+        };
+
+        _metaText = BuildMetaText();
+    }
+
+    private EndpointStatus ComputeAggregate()
+    {
+        if (Endpoints.Count == 0)
+            return EndpointStatus.Unknown;
+
+        if (Endpoints.Any(e => e.Status == EndpointStatus.Down))
+            return EndpointStatus.Down;
+
+        if (Endpoints.Any(e => e.Status == EndpointStatus.Degraded))
+            return EndpointStatus.Degraded;
+
+        return EndpointStatus.Up;
+    }
+
+    private string BuildMetaText()
+    {
+        int total = Endpoints.Count;
+        if (total == 0)
+            return string.Empty;
+
+        int issueCount = Endpoints.Count(e =>
+            e.Status == EndpointStatus.Down || e.Status == EndpointStatus.Degraded);
+
+        if (issueCount == 0)
+            return $"All {total} endpoint{(total == 1 ? "" : "s")} operational";
+
+        return $"{issueCount} of {total} endpoint{(total == 1 ? "" : "s")} reporting issues";
+    }
+}

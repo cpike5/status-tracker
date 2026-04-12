@@ -1,0 +1,61 @@
+@rendermode InteractiveServer
+
+@using StatusTracker.Services
+@using StatusTracker.Entities
+
+<div class="endpoint-group">
+    @* Group header — clickable, toggles collapse *@
+    <button class="group-header" @onclick="ToggleCollapsed" aria-expanded="@(!_collapsed)">
+        <span class="group-name">@DisplayName <span class="group-count">(@Endpoints.Count)</span></span>
+        <span class="group-chevron @(_collapsed ? "group-chevron--collapsed" : "")" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 5L7 9L11 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </span>
+    </button>
+
+    @if (!_collapsed)
+    {
+        @* Column headers *@
+        <div class="group-col-headers endpoint-row" aria-hidden="true">
+            <div></div>
+            <span class="col-header-label">Endpoint</span>
+            <span class="col-header-label">Status</span>
+            <span class="col-header-label hide-mobile">Resp.</span>
+            <span class="col-header-label hide-mobile">24h</span>
+            <span class="col-header-label hide-mobile">7d</span>
+            <span class="col-header-label hide-mobile">90 Days</span>
+        </div>
+
+        @* Endpoint rows *@
+        @for (var i = 0; i < Endpoints.Count; i++)
+        {
+            var endpoint = Endpoints[i];
+            var summaries = DailySummariesByEndpoint.TryGetValue(endpoint.Endpoint.Id, out var s) ? s : [];
+            <EndpointRow EndpointStatus="endpoint"
+                         DailySummaries="summaries"
+                         Index="BaseIndex + i" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? GroupName { get; set; }
+
+    [Parameter, EditorRequired]
+    public List<EndpointStatusDto> Endpoints { get; set; } = [];
+
+    [Parameter]
+    public Dictionary<int, List<DailyUptimeSummary>> DailySummariesByEndpoint { get; set; } = new();
+
+    [Parameter]
+    public int BaseIndex { get; set; }
+
+    private bool _collapsed;
+
+    private string DisplayName =>
+        string.IsNullOrWhiteSpace(GroupName) ? "Ungrouped" : GroupName;
+
+    private void ToggleCollapsed() => _collapsed = !_collapsed;
+}

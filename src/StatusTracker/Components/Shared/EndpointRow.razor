@@ -1,0 +1,71 @@
+@rendermode InteractiveServer
+
+@using StatusTracker.Services
+@using StatusTracker.Entities
+
+<a class="endpoint-row row-enter"
+   href="/endpoint/@EndpointStatus.Endpoint.Id"
+   style="--i: @Index"
+   aria-label="@EndpointStatus.Endpoint.Name status: @StatusText">
+    @* Column 1: Status bar *@
+    <div class="status-bar status-bar--@StatusModifier" aria-hidden="true"></div>
+
+    @* Column 2: Name and URL *@
+    <div class="endpoint-name-cell">
+        <span class="endpoint-name">@EndpointStatus.Endpoint.Name</span>
+        <span class="endpoint-url">@EndpointStatus.Endpoint.Url</span>
+    </div>
+
+    @* Column 3: Status text *@
+    <span class="endpoint-status endpoint-status--@StatusModifier">@StatusText</span>
+
+    @* Column 4: Response time (hide on mobile) *@
+    <span class="endpoint-metric hide-mobile">@ResponseTimeDisplay</span>
+
+    @* Column 5: 24h uptime (hide on mobile) *@
+    <span class="endpoint-metric hide-mobile">@FormatUptime(EndpointStatus.Uptime24h)</span>
+
+    @* Column 6: 7d uptime (hide on mobile) *@
+    <span class="endpoint-metric hide-mobile">@FormatUptime(EndpointStatus.Uptime7d)</span>
+
+    @* Column 7: 90-day uptime bar (hide on mobile) *@
+    <div class="hide-mobile">
+        <UptimeBar DailySummaries="DailySummaries"
+                   UptimePercentage="EndpointStatus.Uptime30d" />
+    </div>
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public EndpointStatusDto EndpointStatus { get; set; } = null!;
+
+    [Parameter]
+    public List<DailyUptimeSummary> DailySummaries { get; set; } = [];
+
+    [Parameter]
+    public int Index { get; set; }
+
+    private string StatusModifier => EndpointStatus.Status switch
+    {
+        Services.EndpointStatus.Up       => "up",
+        Services.EndpointStatus.Down     => "down",
+        Services.EndpointStatus.Degraded => "degraded",
+        _                                => "unknown"
+    };
+
+    private string StatusText => EndpointStatus.Status switch
+    {
+        Services.EndpointStatus.Up       => "UP",
+        Services.EndpointStatus.Down     => "DOWN",
+        Services.EndpointStatus.Degraded => "DEGRADED",
+        _                                => "UNKNOWN"
+    };
+
+    private string ResponseTimeDisplay =>
+        EndpointStatus.LatestResponseTimeMs.HasValue
+            ? $"{EndpointStatus.LatestResponseTimeMs.Value}ms"
+            : "\u2014";
+
+    private static string FormatUptime(decimal? value) =>
+        value.HasValue ? $"{value:F1}%" : "\u2014";
+}

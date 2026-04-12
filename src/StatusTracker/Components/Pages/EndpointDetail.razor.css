@@ -1,0 +1,214 @@
+/* Loading / not-found states */
+.detail-loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-xl) 0;
+}
+
+.not-found-message {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-unknown);
+    background-color: var(--color-surface);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+}
+
+/* Back link spacing */
+.back-link {
+    display: inline-block;
+    margin-bottom: var(--space-sm);
+}
+
+/* Detail header */
+.detail-header {
+    margin-bottom: var(--space-md);
+}
+
+.detail-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.detail-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xs);
+    min-width: 0;
+}
+
+.detail-name {
+    font-family: var(--font-display);
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    color: var(--color-ink);
+    margin: 0;
+    line-height: 1.1;
+}
+
+.detail-url {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-muted);
+    word-break: break-all;
+}
+
+/* Metrics strip label / value overrides (scoped) */
+.metric-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--color-muted);
+    margin-bottom: var(--space-2xs);
+}
+
+.metric-value {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--color-ink);
+    line-height: 1.1;
+}
+
+/* Spacing below metrics strip */
+.metrics-strip {
+    margin-bottom: var(--space-md);
+}
+
+/* Cards (chart, uptime bar, table) */
+.detail-card {
+    background-color: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.card-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--color-ink);
+}
+
+/* Chart states */
+.chart-empty,
+.chart-loading {
+    padding: var(--space-md) 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+}
+
+/* Recent checks table */
+.checks-table-wrapper {
+    overflow-x: auto;
+}
+
+.checks-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.checks-table thead th {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--color-muted);
+    text-align: left;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid var(--color-rule);
+}
+
+.checks-table tbody tr {
+    border-bottom: 1px solid var(--color-rule-light);
+    transition: background-color 100ms;
+}
+
+.checks-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.checks-table tbody tr:hover {
+    background-color: var(--color-surface-alt);
+}
+
+.checks-table tbody td {
+    padding: var(--space-xs) var(--space-sm);
+    color: var(--color-ink);
+    vertical-align: middle;
+}
+
+.col-timestamp {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-ink-light);
+    white-space: nowrap;
+}
+
+.utc-suffix {
+    color: var(--color-muted);
+}
+
+.col-status {
+    display: flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+}
+
+.col-response {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-ink-light);
+    text-align: right;
+}
+
+.col-http {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-ink-light);
+    text-align: right;
+}
+
+.checks-empty {
+    padding: var(--space-md) 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .detail-title-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .detail-card {
+        padding: var(--space-sm);
+    }
+}
