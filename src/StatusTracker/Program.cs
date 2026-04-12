@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -39,6 +40,19 @@ try
     // Database
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+
+    // HttpClientFactory for health checks
+    builder.Services.AddHttpClient("HealthCheck");
+
+    // FluentValidation
+    builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+    // Application services
+    builder.Services.AddScoped<IEndpointService, EndpointService>();
+    builder.Services.AddScoped<ICheckResultService, CheckResultService>();
+
+    // Background services
+    builder.Services.AddHostedService<HealthCheckEngine>();
 
     // Configuration pipeline
     builder.Services.Configure<HealthCheckOptions>(
