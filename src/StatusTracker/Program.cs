@@ -54,6 +54,7 @@ try
 
     // Background services
     builder.Services.AddHostedService<HealthCheckEngine>();
+    builder.Services.AddHostedService<DataRetentionService>();
 
     // Infrastructure health checks
     builder.Services.AddHealthChecks()
