@@ -1,0 +1,18 @@
+@page "/access-denied"
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@layout Layout.MainLayout
+
+<PageTitle>Access Denied</PageTitle>
+
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+    <MudIcon Icon="@Icons.Material.Filled.Block" Size="Size.Large" Color="Color.Error" Class="mb-4" />
+    <MudText Typo="Typo.h4" Class="mb-2">Access Denied</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+        Your email address is not authorized to access this application.
+        Contact your administrator to request access.
+    </MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/login">
+        Back to Login
+    </MudButton>
+</div>

@@ -1,16 +1,24 @@
+@using Microsoft.AspNetCore.Components.Authorization
+
 <header class="site-header">
     <div class="header-content">
         @* TODO: Replace with SiteSettings.SiteTitle (Phase 6, Task 6.5) *@
         <a href="/" class="site-title">Status Tracker</a>
 
         <div class="nav-meta">
-            <span class="live-indicator">
-                <span class="live-dot" aria-hidden="true"></span>
-                <span>Live</span>
-            </span>
-            <span class="separator">|</span>
-            @* TODO: Update via SignalR push from health check engine (Phase 5) *@
-            <span class="last-updated">Last updated: @DateTime.Now.ToString("h:mm:ss tt")</span>
+            <AuthorizeView>
+                <Authorized>
+                    <span class="live-indicator">
+                        <span class="live-dot" aria-hidden="true"></span>
+                        <span>Live</span>
+                    </span>
+                    <span class="separator">|</span>
+                    @* TODO: Update via SignalR push from health check engine (Phase 5) *@
+                    <span class="last-updated">Last updated: @DateTime.UtcNow.ToString("h:mm:ss tt")</span>
+                    <span class="separator">|</span>
+                    <MudLink Href="/api/auth/logout" Color="Color.Inherit" Typo="Typo.caption" Style="font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.10em;">Logout</MudLink>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </div>
 </header>

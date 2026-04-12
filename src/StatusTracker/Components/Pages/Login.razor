@@ -1,0 +1,48 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authorization
+@layout Layout.MainLayout
+@inject IAuthenticationSchemeProvider SchemeProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh;">
+    <MudText Typo="Typo.h4" Class="mb-2">Sign In</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+        Choose a provider to continue
+    </MudText>
+    <MudStack Spacing="3" Style="width: 300px;">
+        @foreach (var provider in _providers)
+        {
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large"
+                       Href="@($"/api/auth/login/{provider.Name}")"
+                       StartIcon="@GetProviderIcon(provider.Name)">
+                Sign in with @provider.DisplayName
+            </MudButton>
+        }
+    </MudStack>
+</div>
+
+@code {
+    private IEnumerable<AuthenticationScheme> _providers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var schemes = await SchemeProvider.GetAllSchemesAsync();
+        _providers = schemes.Where(s =>
+            s.Name == "Google" || s.Name == "Microsoft" || s.Name == "GitHub");
+    }
+
+    private string GetProviderIcon(string provider) => provider switch
+    {
+        "Google" => Icons.Custom.Brands.Google,
+        "Microsoft" => Icons.Custom.Brands.Microsoft,
+        "GitHub" => Icons.Custom.Brands.GitHub,
+        _ => Icons.Material.Filled.Login
+    };
+}
