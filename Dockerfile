@@ -3,15 +3,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
 
-# Copy solution and project files for restore.
-# Copying these first allows Docker to cache the restore layer — this layer is only
-# invalidated when .csproj or .sln files change, not on every source change.
-COPY StatusTracker.sln .
+# Copy the project file for restore.
+# Copying this first allows Docker to cache the restore layer — this layer is only
+# invalidated when the .csproj changes, not on every source change.
 COPY src/StatusTracker/StatusTracker.csproj src/StatusTracker/
-COPY tests/StatusTracker.Tests/StatusTracker.Tests.csproj tests/StatusTracker.Tests/
 
 # Restore dependencies into a separate layer to maximise cache reuse.
-RUN dotnet restore
+RUN dotnet restore src/StatusTracker/StatusTracker.csproj
 
 # Copy the remaining source and publish in Release configuration.
 # --no-restore skips a redundant restore since the layer above already ran it.
