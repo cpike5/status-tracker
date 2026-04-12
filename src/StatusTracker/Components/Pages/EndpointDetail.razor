@@ -90,7 +90,7 @@ else
                                      Items="_responseTimeHistory"
                                      Name="Response Time"
                                      SeriesType="SeriesType.Area"
-                                     XValue="@(e => e.Timestamp.ToLocalTime().ToString("MMM d h:mm tt"))"
+                                     XValue="@(e => ToLocalTime(e.Timestamp).ToString("MMM d h:mm tt"))"
                                      YValue="@(e => (decimal)e.ResponseTimeMs)" />
                 </ApexChart>
             }
@@ -140,7 +140,7 @@ else
                             {
                                 <tr>
                                     <td class="col-timestamp">
-                                        @check.Timestamp.ToString("h:mm:ss tt") <span class="utc-suffix">(UTC)</span>
+                                        @ToLocalTime(check.Timestamp).ToString("h:mm:ss tt")
                                     </td>
                                     <td class="col-status">
                                         <span class="check-dot @(check.IsHealthy ? "check-dot--up" : "check-dot--down")"></span>
@@ -169,6 +169,7 @@ else
 
 @code {
     [CascadingParameter(Name = "SiteTitle")] private string? SiteTitle { get; set; }
+    [CascadingParameter(Name = "BrowserTimeZone")] private TimeZoneInfo? BrowserTimeZone { get; set; }
 
     [Parameter]
     public int Id { get; set; }
@@ -412,6 +413,13 @@ else
         "7d" => TimeSpan.FromDays(7),
         _ => TimeSpan.FromHours(24)
     };
+
+    private DateTime ToLocalTime(DateTime utcTime)
+    {
+        if (BrowserTimeZone is not null)
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), BrowserTimeZone);
+        return utcTime;
+    }
 
     private static string FormatRelativeTime(DateTime utcTime)
     {

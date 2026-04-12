@@ -20,7 +20,7 @@
                         <span>Live</span>
                     </span>
                     <span class="separator">|</span>
-                    <span class="last-updated">Last updated: @DateTime.UtcNow.ToString("h:mm:ss tt")</span>
+                    <span class="last-updated">Last updated: @FormatLocalTime(DateTime.UtcNow)</span>
                     <span class="separator">|</span>
                     <MudMenu Icon="@Icons.Material.Filled.Settings"
                              Size="Size.Small"
@@ -49,4 +49,16 @@
 @code {
     [Parameter] public string SiteTitle { get; set; } = "Status Page";
     [Parameter] public string? LogoUrl { get; set; }
+    [Parameter] public TimeZoneInfo? BrowserTimeZone { get; set; }
+
+    private string FormatLocalTime(DateTime utcTime)
+    {
+        if (BrowserTimeZone is not null)
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), BrowserTimeZone);
+            return local.ToString("h:mm:ss tt");
+        }
+        return utcTime.ToString("h:mm:ss tt") + " UTC";
+    }
 }
