@@ -1,0 +1,118 @@
+@page "/admin/endpoints/{Id:int}/edit"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using StatusTracker.Components.Shared
+@using StatusTracker.Entities
+@using StatusTracker.Services
+
+@inject IEndpointService EndpointService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ILogger<EndpointEdit> Logger
+
+<PageTitle>Edit Endpoint</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-center align-center" style="min-height: 40vh;">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Primary" />
+    </div>
+}
+else if (_notFound)
+{
+    <div class="d-flex flex-column align-center justify-center" style="min-height: 40vh; text-align: center;">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Warning" Class="mb-4" />
+        <MudText Typo="Typo.h5" Class="mb-2">Endpoint Not Found</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            No endpoint with ID @Id exists.
+        </MudText>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Href="/admin/endpoints">
+            Back to Endpoints
+        </MudButton>
+    </div>
+}
+else
+{
+    <div class="page-header mb-6">
+        <MudBreadcrumbs Items="_breadcrumbs" />
+        <MudText Typo="Typo.h4" Class="mt-2">Edit Endpoint</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Update the configuration for <strong>@_endpoint!.Name</strong>.
+        </MudText>
+    </div>
+
+    <MudPaper Class="pa-6" Elevation="1">
+        <EndpointForm Endpoint="_endpoint!"
+                      OnValidSubmit="HandleUpdateAsync"
+                      IsEdit="true" />
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MonitoredEndpoint? _endpoint;
+    private bool _isLoading = true;
+    private bool _notFound;
+
+    private List<BreadcrumbItem> _breadcrumbs =
+    [
+        new("Dashboard", href: "/"),
+        new("Endpoints", href: "/admin/endpoints"),
+        new("Edit", href: null, disabled: true)
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _endpoint = await EndpointService.GetByIdAsync(Id);
+
+            if (_endpoint is null)
+            {
+                _notFound = true;
+                Logger.LogWarning("Endpoint with ID {EndpointId} not found for editing", Id);
+            }
+            else
+            {
+                // Update breadcrumb to include endpoint name once loaded
+                _breadcrumbs =
+                [
+                    new("Dashboard", href: "/"),
+                    new("Endpoints", href: "/admin/endpoints"),
+                    new(_endpoint.Name, href: null, disabled: true)
+                ];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load endpoint {EndpointId} for editing", Id);
+            _notFound = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleUpdateAsync()
+    {
+        try
+        {
+            await EndpointService.UpdateAsync(_endpoint!);
+            Logger.LogInformation("Updated endpoint {EndpointId} ({EndpointName})", _endpoint!.Id, _endpoint.Name);
+            Snackbar.Add($"Endpoint \"{_endpoint.Name}\" saved successfully.", Severity.Success);
+            Navigation.NavigateTo("/admin/endpoints");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update endpoint {EndpointId}", Id);
+            Snackbar.Add("Failed to save changes. Please try again.", Severity.Error);
+        }
+    }
+}

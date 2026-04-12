@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using StatusTracker.Entities;
 
@@ -27,24 +28,42 @@ public class MonitoredEndpointValidator : AbstractValidator<MonitoredEndpoint>
             .WithMessage("Expected status code must be between 100 and 599");
 
         RuleFor(x => x.TimeoutSeconds)
-            .InclusiveBetween(1, 300)
-            .WithMessage("Timeout must be between 1 and 300 seconds");
+            .InclusiveBetween(1, 60)
+            .WithMessage("Timeout must be between 1 and 60 seconds");
 
         RuleFor(x => x.TimeoutSeconds)
             .LessThan(x => x.CheckIntervalSeconds)
             .WithMessage("Timeout must be less than the check interval");
 
         RuleFor(x => x.RetryCount)
-            .InclusiveBetween(0, 10)
-            .WithMessage("Retry count must be between 0 and 10");
+            .InclusiveBetween(0, 5)
+            .WithMessage("Retry count must be between 0 and 5");
 
         RuleFor(x => x.SortOrder)
-            .GreaterThanOrEqualTo(0);
+            .InclusiveBetween(0, 9999);
 
         RuleFor(x => x.Group)
             .MaximumLength(100);
 
         RuleFor(x => x.ExpectedBodyMatch)
-            .MaximumLength(1000);
+            .MaximumLength(1000)
+            .Must(BeValidRegexOrNull)
+            .WithMessage("Expected body match must be a valid regular expression");
+    }
+
+    private static bool BeValidRegexOrNull(string? pattern)
+    {
+        if (string.IsNullOrEmpty(pattern))
+            return true;
+
+        try
+        {
+            Regex.Match(string.Empty, pattern, RegexOptions.None, TimeSpan.FromSeconds(1));
+            return true;
+        }
+        catch (RegexParseException)
+        {
+            return false;
+        }
     }
 }
