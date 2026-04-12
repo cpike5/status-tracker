@@ -1,0 +1,13 @@
+bin/
+obj/
+.git/
+.github/
+docs/
+prototype/
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+**/.DS_Store
+**/Thumbs.db
