@@ -1,0 +1,80 @@
+:root {
+    /* Surfaces */
+    --color-bg: #f4f6f9;
+    --color-surface: #ffffff;
+    --color-surface-alt: #f8f9fb;
+
+    /* Text */
+    --color-ink: #1a1d23;
+    --color-ink-light: #4b5060;
+    --color-muted: #8b92a0;
+
+    /* Accent (runtime configurable) */
+    --color-accent: #3d6ce7;
+    --color-accent-hover: #2d55c4;
+
+    /* Status (invariant) */
+    --color-up: #1a9a45;
+    --color-up-bg: rgba(26, 154, 69, 0.08);
+    --color-down: #d63031;
+    --color-down-bg: rgba(214, 48, 49, 0.08);
+    --color-degraded: #d4910a;
+    --color-degraded-bg: rgba(212, 145, 10, 0.08);
+    --color-unknown: #8b92a0;
+    --color-unknown-bg: rgba(139, 146, 160, 0.08);
+
+    /* Structure */
+    --color-border: #e0e4eb;
+    --color-rule: #e8ecf1;
+    --color-rule-light: #f0f2f6;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.03);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-lg: 0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08);
+
+    /* Radius */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    /* Typography */
+    --font-display: 'Bricolage Grotesque', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Type Scale */
+    --text-xs: clamp(0.7rem, 0.65rem + 0.25vw, 0.8rem);
+    --text-sm: clamp(0.8rem, 0.75rem + 0.25vw, 0.875rem);
+    --text-base: clamp(0.875rem, 0.82rem + 0.3vw, 1rem);
+    --text-lg: clamp(1rem, 0.9rem + 0.5vw, 1.25rem);
+    --text-xl: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+    --text-2xl: clamp(1.5rem, 1.1rem + 1.8vw, 2.5rem);
+    --text-3xl: clamp(2rem, 1.5rem + 2.5vw, 3.5rem);
+    --text-hero: clamp(2.5rem, 1.8rem + 4vw, 5rem);
+
+    /* Spacing */
+    --space-unit: 0.5rem;
+    --space-2xs: 0.25rem;
+    --space-xs: 0.5rem;
+    --space-sm: 1rem;
+    --space-md: 2rem;
+    --space-lg: 4rem;
+    --space-xl: 6rem;
+
+    /* Easing */
+    --ease-out-expo: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

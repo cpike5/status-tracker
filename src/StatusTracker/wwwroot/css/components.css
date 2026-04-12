@@ -1,0 +1,237 @@
+/* Status indicator bar — left edge of endpoint rows */
+.status-bar {
+    width: 6px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.status-bar--up { background-color: var(--color-up); }
+.status-bar--degraded { background-color: var(--color-degraded); }
+.status-bar--down { background-color: var(--color-down); }
+.status-bar--unknown { background-color: var(--color-unknown); }
+
+/* Status badge (detail page) */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-2xs) var(--space-xs);
+    border-radius: 100px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.status-badge--up {
+    color: var(--color-up);
+    background-color: var(--color-up-bg);
+    border: 1px solid var(--color-up);
+}
+
+.status-badge--degraded {
+    color: var(--color-degraded);
+    background-color: var(--color-degraded-bg);
+    border: 1px solid var(--color-degraded);
+}
+
+.status-badge--down {
+    color: var(--color-down);
+    background-color: var(--color-down-bg);
+    border: 1px solid var(--color-down);
+}
+
+.status-badge--unknown {
+    color: var(--color-unknown);
+    background-color: var(--color-unknown-bg);
+    border: 1px solid var(--color-unknown);
+}
+
+/* Endpoint row grid (desktop) */
+.endpoint-row {
+    display: grid;
+    grid-template-columns: 6px 200px 70px 70px 60px 60px 1fr;
+    align-items: center;
+    padding: var(--space-xs) var(--space-sm);
+    border-bottom: 1px solid var(--color-rule-light);
+    cursor: pointer;
+    transition: background-color 120ms var(--ease-out-expo);
+}
+
+.endpoint-row:hover {
+    background-color: var(--color-surface-alt);
+}
+
+/* Endpoint row grid (mobile) */
+@media (max-width: 900px) {
+    .endpoint-row {
+        grid-template-columns: 6px 1fr 70px;
+    }
+
+    .endpoint-row .hide-mobile {
+        display: none;
+    }
+}
+
+/* Uptime bar segments */
+.uptime-bar {
+    display: flex;
+    gap: 2px;
+    height: 36px;
+    align-items: stretch;
+}
+
+.uptime-segment {
+    flex: 1;
+    border-radius: 2px;
+    min-width: 2px;
+    position: relative;
+}
+
+.uptime-segment--up { background-color: var(--color-up); }
+.uptime-segment--degraded { background-color: var(--color-degraded); }
+.uptime-segment--down { background-color: var(--color-down); }
+.uptime-segment--unknown { background-color: var(--color-rule-light); }
+
+/* Live pulse dot */
+.live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-up);
+    display: inline-block;
+    animation: pulse-up 2s ease-in-out infinite;
+}
+
+@keyframes pulse-up {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Page enter animation */
+.page-enter {
+    animation: page-enter 400ms var(--ease-out-quart) both;
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Row enter animation (staggered) */
+.row-enter {
+    animation: row-enter 400ms var(--ease-out-expo) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+@keyframes row-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Section label */
+.section-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-muted);
+    border-bottom: 1px solid var(--color-rule);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-2xs);
+}
+
+/* Check status dot */
+.check-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: var(--space-2xs);
+}
+
+.check-dot--up { background-color: var(--color-up); }
+.check-dot--down { background-color: var(--color-down); }
+
+/* Metrics strip */
+.metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+}
+
+.metrics-strip .metric-cell {
+    padding: var(--space-sm);
+    border-right: 1px solid var(--color-rule);
+}
+
+.metrics-strip .metric-cell:last-child {
+    border-right: none;
+}
+
+@media (max-width: 900px) {
+    .metrics-strip {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .metrics-strip .metric-cell:nth-child(2) {
+        border-right: none;
+    }
+}
+
+/* Incident bar */
+.incident-bar {
+    width: 4px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.incident-bar--active { background-color: var(--color-down); }
+.incident-bar--resolved { background-color: var(--color-up); }
+
+/* Back navigation link */
+.back-link {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color 120ms;
+}
+
+.back-link:hover {
+    color: var(--color-accent-hover);
+}
+
+/* Global body styling */
+body {
+    background-color: var(--color-bg);
+    font-family: var(--font-body);
+    color: var(--color-ink);
+    margin: 0;
+}
+
+/* Content container */
+.content-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-md);
+}

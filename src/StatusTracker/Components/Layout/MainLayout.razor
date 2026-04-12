@@ -1,0 +1,20 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="@_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="app-layout">
+    <SiteHeader />
+
+    <main class="main-content page-enter">
+        @Body
+    </main>
+
+    <SiteFooter />
+</div>
+
+@code {
+    private MudTheme _theme = ThemeFactory.Build();
+}

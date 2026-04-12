@@ -1,0 +1,82 @@
+name: status-tracker
+
+services:
+
+  # Application
+  status-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: status-tracker-app
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=statustracker;Username=app;Password=${POSTGRES_PASSWORD}"
+      Seq__ServerUrl: "http://seq:5341"
+      ALLOWED_EMAILS: "${ALLOWED_EMAILS}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+      MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID}"
+      MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET}"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
+      ElasticApm__ServerUrl: "${ElasticApm__ServerUrl:-}"
+      ElasticApm__ServiceName: "status-tracker"
+      ElasticApm__Environment: "${ElasticApm__Environment:-development}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    networks:
+      - internal
+      - elastic
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: status-tracker-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"           # local dev access; remove or restrict in production
+    environment:
+      POSTGRES_DB: statustracker
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d statustracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # Seq — structured log viewer
+  seq:
+    image: datalust/seq:latest
+    container_name: status-tracker-seq
+    restart: unless-stopped
+    ports:
+      - "5341:5341"
+      - "8081:80"
+    environment:
+      ACCEPT_EULA: Y
+      SEQ_FIRSTRUN_ADMINPASSWORDHASH: ${SEQ_PASSWORD}
+    volumes:
+      - seq-data:/data
+    networks:
+      - internal
+
+volumes:
+  postgres-data:
+  seq-data:
+
+networks:
+  internal:
+    driver: bridge
+  elastic:
+    external: true
