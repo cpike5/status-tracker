@@ -1,6 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using Serilog;
 using StatusTracker.Components;
+using StatusTracker.Data;
+using StatusTracker.Entities;
 using StatusTracker.Infrastructure;
 
 // Stage 1: Bootstrap logger (captures logs before DI is built)
@@ -27,6 +30,9 @@ try
         .AddInteractiveServerComponents();
 
     builder.Services.AddMudServices();
+
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
     // Configuration pipeline
     builder.Services.Configure<HealthCheckOptions>(
@@ -62,6 +68,35 @@ try
         }
     }
 
+    // Auto-migrate database on startup (fail-fast if migration fails)
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        try
+        {
+            await db.Database.MigrateAsync();
+            Log.Information("Database migration completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Database migration failed");
+            throw;
+        }
+
+        // Seed default SiteSettings if table is empty
+        if (!await db.SiteSettings.AnyAsync())
+        {
+            db.SiteSettings.Add(new SiteSettings
+            {
+                SiteTitle = "Status Tracker",
+                AccentColor = "#3d6ce7",
+                FooterText = "Powered by Status Tracker"
+            });
+            await db.SaveChangesAsync();
+            Log.Information("Default SiteSettings seeded");
+        }
+    }
+
     // Configure the HTTP request pipeline.
     if (!app.Environment.IsDevelopment())
     {
@@ -75,7 +110,7 @@ try
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
-    app.Run();
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
