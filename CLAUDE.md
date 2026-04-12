@@ -25,22 +25,45 @@ Status Tracker is a self-hosted status page application built with .NET 9 and Bl
 - Access controlled via email whitelist
 - Serilog with Seq sink (dev) and Elastic APM (prod)
 
+## Solution Structure
+
+```
+status-tracker/
+  src/
+    StatusTracker/          # Main Blazor Server application
+  tests/
+    StatusTracker.Tests/
+      Unit/                 # Fast unit tests (NSubstitute mocks, no Docker)
+      Integration/          # Database integration tests (Testcontainers)
+  docs/                     # Project documentation
+  docker-compose.yml
+  .env.example
+```
+
 ## Documentation
 
+- `docs/configuration.md` — full environment variable reference
+- `docs/architecture.md` — system design, C4 diagrams, ADRs
 - `docs/requirements.md` — full requirements spec, data model, design principles
 
 ## Commands
 
 ```bash
-# Run locally
-dotnet run
+# Run locally (set env vars first — see docs/configuration.md)
+dotnet run --project src/StatusTracker
 
-# Run tests
+# Run all tests
 dotnet test
 
-# Apply EF migrations
-dotnet ef database update
+# Run only unit tests (no Docker required)
+dotnet test --filter "Category=Unit"
 
-# Docker
+# Run only integration tests (requires Docker for Testcontainers)
+dotnet test --filter "Category=Integration"
+
+# Apply EF migrations
+dotnet ef database update --project src/StatusTracker
+
+# Docker (full stack)
 docker compose up -d
 ```

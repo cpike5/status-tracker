@@ -1,35 +1,57 @@
 # Stage 1: Build
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+# Use the full SDK image only for the build stage; it is discarded in the final image.
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 WORKDIR /src
 
-# Copy solution and project files for restore
-# Copying these first allows Docker to cache the restore layer — rebuild only invalidates
-# this cache when .csproj or .sln files change, not on every source change.
+# Copy solution and project files for restore.
+# Copying these first allows Docker to cache the restore layer — this layer is only
+# invalidated when .csproj or .sln files change, not on every source change.
 COPY StatusTracker.sln .
 COPY src/StatusTracker/StatusTracker.csproj src/StatusTracker/
 COPY tests/StatusTracker.Tests/StatusTracker.Tests.csproj tests/StatusTracker.Tests/
 
-# Restore dependencies
+# Restore dependencies into a separate layer to maximise cache reuse.
 RUN dotnet restore
 
-# Copy everything and publish
+# Copy the remaining source and publish in Release configuration.
+# --no-restore skips a redundant restore since the layer above already ran it.
 COPY . .
-RUN dotnet publish src/StatusTracker/StatusTracker.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish src/StatusTracker/StatusTracker.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
 
 # Stage 2: Runtime
-# Use the smaller aspnet runtime image (no SDK) for the final image
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+# Alpine-based aspnet image is ~50 MB smaller than the Debian variant.
+# curl is installed here (not present by default on Alpine) for the HEALTHCHECK below.
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS runtime
+
+# Metadata labels on the final image only (LABEL is not valid before FROM).
+LABEL org.opencontainers.image.description="Status Tracker — self-hosted status page for monitoring HTTP endpoints" \
+      org.opencontainers.image.base.name="mcr.microsoft.com/dotnet/aspnet:9.0-alpine"
+
 WORKDIR /app
 
-# Create non-root user to avoid running the process as root inside the container
-RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+RUN apk add --no-cache curl \
+    # Create a locked-down non-root user; /sbin/nologin prevents interactive logins.
+    && addgroup -S appgroup \
+    && adduser -S -G appgroup -h /app -s /sbin/nologin appuser
 
 COPY --from=build /app/publish .
 
-# Drop privileges
+# Tell Kestrel to bind on all interfaces at port 8080 (avoids the internal 5000 default).
+ENV ASPNETCORE_URLS=http://+:8080
+
+# Drop privileges before starting the process.
 USER appuser
 
-# Kestrel default port (overrides internal 5000 default; mapped to host via docker-compose)
+# Expose the Kestrel port. Actual host mapping is defined in docker-compose.yml.
 EXPOSE 8080
+
+# Liveness probe: hit the ASP.NET Core health-check endpoint.
+# --fail causes curl to exit non-zero on HTTP errors (4xx/5xx).
+# Interval/timeout/retries chosen to allow a slow cold start (EF migrations, DB connect).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl --fail --silent http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "StatusTracker.dll"]

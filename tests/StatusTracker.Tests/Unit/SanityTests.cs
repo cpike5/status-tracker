@@ -1,5 +1,6 @@
 namespace StatusTracker.Tests.Unit;
 
+[Trait("Category", "Unit")]
 public class SanityTests
 {
     [Fact]

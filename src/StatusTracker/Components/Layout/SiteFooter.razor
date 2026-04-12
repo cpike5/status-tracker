@@ -1,8 +1,11 @@
-<footer class="site-footer">
-    <div class="footer-content">
-        @(FooterText ?? "Powered by Status Tracker")
-    </div>
-</footer>
+@if (!string.IsNullOrEmpty(FooterText))
+{
+    <footer class="site-footer">
+        <div class="footer-content">
+            @FooterText
+        </div>
+    </footer>
+}
 
 @code {
     [Parameter] public string? FooterText { get; set; }

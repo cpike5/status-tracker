@@ -12,7 +12,7 @@
 
 @implements IAsyncDisposable
 
-<PageTitle>@(_endpoint?.Name ?? "Endpoint") — Status Tracker</PageTitle>
+<PageTitle>@(_endpoint?.Name ?? "Endpoint") — @(SiteTitle ?? "Status Page")</PageTitle>
 
 @if (_notFound)
 {
@@ -168,6 +168,8 @@ else
 }
 
 @code {
+    [CascadingParameter(Name = "SiteTitle")] private string? SiteTitle { get; set; }
+
     [Parameter]
     public int Id { get; set; }
 

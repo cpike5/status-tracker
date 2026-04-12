@@ -11,7 +11,7 @@
 
 @implements IAsyncDisposable
 
-<PageTitle>Dashboard — Status Tracker</PageTitle>
+<PageTitle>Dashboard — @(SiteTitle ?? "Status Page")</PageTitle>
 
 @if (_loadError is not null)
 {
@@ -45,6 +45,8 @@ else
 }
 
 @code {
+    [CascadingParameter(Name = "SiteTitle")] private string? SiteTitle { get; set; }
+
     private List<EndpointStatusDto>? _allEndpoints;
     private Dictionary<int, List<DailyUptimeSummary>> _dailySummaries = new();
     private List<(string? Key, List<EndpointStatusDto> Endpoints)> _sortedGroups = [];

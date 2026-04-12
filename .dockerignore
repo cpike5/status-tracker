@@ -4,6 +4,7 @@ obj/
 .github/
 docs/
 prototype/
+tests/
 *.md
 !README.md
 .env
