@@ -248,7 +248,7 @@ try
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
-    // Auth endpoints — minimal API for OAuth challenge and logout
+    // Auth endpoints — minimal API for OAuth challenge, callback, and logout
     app.MapGet("/api/auth/login/{provider}", async (string provider, HttpContext context,
         IAuthenticationSchemeProvider schemeProvider) =>
     {
@@ -256,9 +256,56 @@ try
         if (scheme is null)
             return Results.BadRequest("Unknown provider.");
 
-        var properties = new AuthenticationProperties { RedirectUri = "/" };
+        var properties = new AuthenticationProperties { RedirectUri = "/api/auth/callback" };
         await context.ChallengeAsync(provider, properties);
         return Results.Empty;
+    }).AllowAnonymous();
+
+    // OAuth callback — converts the external login cookie into an application sign-in.
+    // Identity stores the OAuth result in the External cookie; this endpoint reads it,
+    // finds or creates the local user, and issues the Application cookie.
+    app.MapGet("/api/auth/callback", async (
+        HttpContext context,
+        SignInManager<AppUser> signInManager,
+        UserManager<AppUser> userManager,
+        ILogger<Program> logger) =>
+    {
+        var info = await signInManager.GetExternalLoginInfoAsync();
+        if (info is null)
+            return Results.Redirect("/login");
+
+        // Try to sign in with existing external login
+        var result = await signInManager.ExternalLoginSignInAsync(
+            info.LoginProvider, info.ProviderKey, isPersistent: true);
+
+        if (!result.Succeeded)
+        {
+            // First login — create local user linked to the external provider
+            var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+            if (email is null)
+            {
+                logger.LogWarning("OAuth login for {Provider} returned no email claim", info.LoginProvider);
+                return Results.Redirect("/access-denied");
+            }
+
+            var user = await userManager.FindByEmailAsync(email);
+            if (user is null)
+            {
+                user = new AppUser { UserName = email, Email = email };
+                var createResult = await userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    logger.LogError("Failed to create user {Email}: {Errors}",
+                        email, string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                    return Results.Redirect("/access-denied");
+                }
+            }
+
+            await userManager.AddLoginAsync(user, info);
+            await signInManager.SignInAsync(user, isPersistent: true);
+        }
+
+        return Results.Redirect("/");
     }).AllowAnonymous();
 
     app.MapGet("/api/auth/logout", async (HttpContext context) =>
