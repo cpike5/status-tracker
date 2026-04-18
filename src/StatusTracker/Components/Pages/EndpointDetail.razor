@@ -307,18 +307,11 @@ else
 
             _endpoint = endpoint;
 
-            // Run independent data fetches in parallel
-            var uptimeTask = CheckResultService.GetUptimePercentageAsync(Id, TimeSpan.FromDays(30));
-            var historyTask = CheckResultService.GetResponseTimeHistoryAsync(Id, RangeToTimeSpan(_selectedRange));
-            var dailyTask = CheckResultService.GetDailyUptimeSummaryAsync(Id, 90);
-            var checksTask = CheckResultService.GetLatestByEndpointAsync(Id, 12);
-
-            await Task.WhenAll(uptimeTask, historyTask, dailyTask, checksTask);
-
-            _uptime30d = await uptimeTask;
-            _responseTimeHistory = await historyTask;
-            _dailySummaries = await dailyTask;
-            _recentChecks = await checksTask;
+            // DbContext is not thread-safe — run queries sequentially
+            _uptime30d = await CheckResultService.GetUptimePercentageAsync(Id, TimeSpan.FromDays(30));
+            _responseTimeHistory = await CheckResultService.GetResponseTimeHistoryAsync(Id, RangeToTimeSpan(_selectedRange));
+            _dailySummaries = await CheckResultService.GetDailyUptimeSummaryAsync(Id, 90);
+            _recentChecks = await CheckResultService.GetLatestByEndpointAsync(Id, 12);
 
             ComputeDerivedMetrics();
         }
