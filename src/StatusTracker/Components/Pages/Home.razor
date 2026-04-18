@@ -47,6 +47,9 @@ else
 @code {
     [CascadingParameter(Name = "SiteTitle")] private string? SiteTitle { get; set; }
 
+    private const int MaxLoadRetries = 3;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
+
     private List<EndpointStatusDto>? _allEndpoints;
     private Dictionary<int, List<DailyUptimeSummary>> _dailySummaries = new();
     private List<(string? Key, List<EndpointStatusDto> Endpoints)> _sortedGroups = [];
@@ -62,37 +65,47 @@ else
 
     private async Task LoadDataAsync()
     {
-        try
+        for (var attempt = 1; attempt <= MaxLoadRetries; attempt++)
         {
-            var endpoints = await EndpointService.GetWithStatusAsync();
-
-            var summaries = new Dictionary<int, List<DailyUptimeSummary>>();
-            foreach (var e in endpoints)
+            try
             {
-                summaries[e.Endpoint.Id] = await CheckResultService.GetDailyUptimeSummaryAsync(e.Endpoint.Id, 90);
+                var endpoints = await EndpointService.GetWithStatusAsync();
+
+                var summaries = new Dictionary<int, List<DailyUptimeSummary>>();
+                foreach (var e in endpoints)
+                {
+                    summaries[e.Endpoint.Id] = await CheckResultService.GetDailyUptimeSummaryAsync(e.Endpoint.Id, 90);
+                }
+
+                _dailySummaries = summaries;
+
+                _sortedGroups = endpoints
+                    .GroupBy(e => e.Endpoint.Group)
+                    .Select(g => (
+                        Key: g.Key,
+                        Endpoints: g.OrderBy(e => e.Endpoint.SortOrder).ThenBy(e => e.Endpoint.Name).ToList(),
+                        MinSort: g.Min(e => e.Endpoint.SortOrder)
+                    ))
+                    .OrderBy(g => g.MinSort)
+                    .ThenBy(g => g.Key)
+                    .Select(g => (g.Key, g.Endpoints))
+                    .ToList();
+
+                _allEndpoints = endpoints;
+                _loadError = null;
+                return;
             }
-
-            _dailySummaries = summaries;
-
-            _sortedGroups = endpoints
-                .GroupBy(e => e.Endpoint.Group)
-                .Select(g => (
-                    Key: g.Key,
-                    Endpoints: g.OrderBy(e => e.Endpoint.SortOrder).ThenBy(e => e.Endpoint.Name).ToList(),
-                    MinSort: g.Min(e => e.Endpoint.SortOrder)
-                ))
-                .OrderBy(g => g.MinSort)
-                .ThenBy(g => g.Key)
-                .Select(g => (g.Key, g.Endpoints))
-                .ToList();
-
-            _allEndpoints = endpoints;
-            _loadError = null;
+        catch (Exception ex) when (attempt < MaxLoadRetries)
+        {
+            Logger.LogWarning(ex, "Dashboard load attempt {Attempt}/{MaxRetries} failed, retrying",
+                attempt, MaxLoadRetries);
+            await Task.Delay(RetryDelay, _cts.Token);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to load dashboard data");
+            Logger.LogError(ex, "Failed to load dashboard data after {MaxRetries} attempts", MaxLoadRetries);
             _loadError = ex.Message;
+        }
         }
     }
 
