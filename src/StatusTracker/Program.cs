@@ -2,6 +2,7 @@ using Elastic.Apm.NetCoreAll;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
@@ -95,17 +96,12 @@ try
         options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = true;
         options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.Cookie.SameSite = SameSiteMode.Lax;
     });
 
-    // Authorization with fallback policy — all routes require authentication by default
-    builder.Services.AddAuthorization(options =>
-    {
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build();
-    });
+    // Authorization — admin pages use [Authorize]; public pages (dashboard, endpoint detail) are anonymous
+    builder.Services.AddAuthorization();
 
     // Email whitelist enforcement service
     builder.Services.AddSingleton<IEmailWhitelistService, EmailWhitelistService>();
@@ -225,6 +221,13 @@ try
     }
 
     // Configure the HTTP request pipeline.
+    // Trust reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto) so that
+    // SameAsRequest cookie policy correctly sets the Secure flag behind nginx/SSL.
+    app.UseForwardedHeaders(new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    });
+
     if (!app.Environment.IsDevelopment())
     {
         app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -241,7 +244,7 @@ try
     app.UseAntiforgery();
     app.UseSerilogRequestLogging();
 
-    app.MapStaticAssets();
+    app.MapStaticAssets().AllowAnonymous();
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
