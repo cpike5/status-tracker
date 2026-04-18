@@ -54,19 +54,19 @@
         {
             await EndpointService.CreateAsync(_endpoint);
             Logger.LogInformation("Created endpoint {EndpointName} at {Url}", _endpoint.Name, _endpoint.Url);
-            Snackbar.Add($"Endpoint \"{_endpoint.Name}\" created successfully.", Severity.Success);
+            Snackbar.Add($"Endpoint \"{_endpoint.Name}\" created successfully.", MudBlazor.Severity.Success);
             Navigation.NavigateTo("/admin/endpoints");
         }
         catch (ValidationException ex)
         {
             Logger.LogWarning(ex, "Validation failed creating endpoint {EndpointName}", _endpoint.Name);
             foreach (var error in ex.Errors)
-                Snackbar.Add(error.ErrorMessage, Severity.Error);
+                Snackbar.Add(error.ErrorMessage, MudBlazor.Severity.Error);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to create endpoint {EndpointName}", _endpoint.Name);
-            Snackbar.Add($"Failed to create endpoint: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to create endpoint: {ex.Message}", MudBlazor.Severity.Error);
         }
     }
 }

@@ -172,12 +172,18 @@ public class EndpointService : IEndpointService
     {
         await ValidateOrThrowAsync(endpoint);
 
-        endpoint.UpdatedAt = DateTime.UtcNow;
+        var existing = await _db.MonitoredEndpoints.FindAsync(endpoint.Id);
+        if (existing is null)
+        {
+            _logger.LogWarning("UpdateAsync: endpoint {EndpointId} not found", endpoint.Id);
+            return;
+        }
 
-        _db.MonitoredEndpoints.Update(endpoint);
+        _db.Entry(existing).CurrentValues.SetValues(endpoint);
+        existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Updated endpoint {EndpointId} ({EndpointName})", endpoint.Id, endpoint.Name);
+        _logger.LogInformation("Updated endpoint {EndpointId} ({EndpointName})", existing.Id, existing.Name);
     }
 
     public async Task DeleteAsync(int id)
