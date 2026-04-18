@@ -1,9 +1,8 @@
 using Elastic.Apm.NetCoreAll;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 using Serilog;
@@ -38,6 +37,7 @@ try
         .AddInteractiveServerComponents();
 
     builder.Services.AddMudServices();
+    builder.Services.AddCascadingAuthenticationState();
 
     // Database
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -79,38 +79,25 @@ try
         builder.Configuration["Auth:AllowedEmails"] = allowedEmails;
     }
 
-    // Identity (OAuth-only — no local passwords)
-    builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
-    {
-        options.SignIn.RequireConfirmedAccount = false;
-        options.User.RequireUniqueEmail = true;
-    })
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddDefaultTokenProviders();
-
-    // Cookie configuration
-    builder.Services.ConfigureApplicationCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.AccessDeniedPath = "/access-denied";
-        options.ExpireTimeSpan = TimeSpan.FromDays(30);
-        options.SlidingExpiration = true;
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-    });
-
-    // Authorization — admin pages use [Authorize]; public pages (dashboard, endpoint detail) are anonymous
-    builder.Services.AddAuthorization();
-
     // Email whitelist enforcement service
     builder.Services.AddSingleton<IEmailWhitelistService, EmailWhitelistService>();
 
-    // OAuth providers (conditionally enabled based on env vars)
-    var authBuilder = builder.Services.AddAuthentication();
+    // Authentication — simple cookie + OAuth (no Identity two-cookie dance)
+    var authBuilder = builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        })
+        .AddCookie(options =>
+        {
+            options.LoginPath = "/login";
+            options.AccessDeniedPath = "/access-denied";
+            options.ExpireTimeSpan = TimeSpan.FromDays(30);
+            options.SlidingExpiration = true;
+        });
 
     // Shared whitelist enforcement for all OAuth providers
-    static Task EnforceWhitelist(TicketReceivedContext context)
+    Task EnforceWhitelist(Microsoft.AspNetCore.Authentication.TicketReceivedContext context)
     {
         var whitelistService = context.HttpContext.RequestServices
             .GetRequiredService<IEmailWhitelistService>();
@@ -123,6 +110,7 @@ try
         return Task.CompletedTask;
     }
 
+    // OAuth providers (conditionally enabled based on env vars)
     var googleId = builder.Configuration["Google:ClientId"];
     var googleSecret = builder.Configuration["Google:ClientSecret"];
     if (!string.IsNullOrEmpty(googleId) && !string.IsNullOrEmpty(googleSecret))
@@ -160,6 +148,9 @@ try
             options.Events.OnTicketReceived = EnforceWhitelist;
         });
     }
+
+    // Authorization — admin pages use [Authorize]; public pages are anonymous
+    builder.Services.AddAuthorization();
 
     var app = builder.Build();
 
@@ -221,8 +212,6 @@ try
     }
 
     // Configure the HTTP request pipeline.
-    // Trust reverse proxy headers (X-Forwarded-For, X-Forwarded-Proto) so that
-    // SameAsRequest cookie policy correctly sets the Secure flag behind nginx/SSL.
     app.UseForwardedHeaders(new ForwardedHeadersOptions
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
@@ -248,7 +237,7 @@ try
     app.MapRazorComponents<App>()
         .AddInteractiveServerRenderMode();
 
-    // Auth endpoints — minimal API for OAuth challenge, callback, and logout
+    // Auth endpoints
     app.MapGet("/api/auth/login/{provider}", async (string provider, HttpContext context,
         IAuthenticationSchemeProvider schemeProvider) =>
     {
@@ -256,62 +245,14 @@ try
         if (scheme is null)
             return Results.BadRequest("Unknown provider.");
 
-        var properties = new AuthenticationProperties { RedirectUri = "/api/auth/callback" };
+        var properties = new AuthenticationProperties { RedirectUri = "/" };
         await context.ChallengeAsync(provider, properties);
         return Results.Empty;
     }).AllowAnonymous();
 
-    // OAuth callback — converts the external login cookie into an application sign-in.
-    // Identity stores the OAuth result in the External cookie; this endpoint reads it,
-    // finds or creates the local user, and issues the Application cookie.
-    app.MapGet("/api/auth/callback", async (
-        HttpContext context,
-        SignInManager<AppUser> signInManager,
-        UserManager<AppUser> userManager,
-        ILogger<Program> logger) =>
-    {
-        var info = await signInManager.GetExternalLoginInfoAsync();
-        if (info is null)
-            return Results.Redirect("/login");
-
-        // Try to sign in with existing external login
-        var result = await signInManager.ExternalLoginSignInAsync(
-            info.LoginProvider, info.ProviderKey, isPersistent: true);
-
-        if (!result.Succeeded)
-        {
-            // First login — create local user linked to the external provider
-            var email = info.Principal.FindFirstValue(ClaimTypes.Email);
-            if (email is null)
-            {
-                logger.LogWarning("OAuth login for {Provider} returned no email claim", info.LoginProvider);
-                return Results.Redirect("/access-denied");
-            }
-
-            var user = await userManager.FindByEmailAsync(email);
-            if (user is null)
-            {
-                user = new AppUser { UserName = email, Email = email };
-                var createResult = await userManager.CreateAsync(user);
-                if (!createResult.Succeeded)
-                {
-                    logger.LogError("Failed to create user {Email}: {Errors}",
-                        email, string.Join(", ", createResult.Errors.Select(e => e.Description)));
-                    return Results.Redirect("/access-denied");
-                }
-            }
-
-            await userManager.AddLoginAsync(user, info);
-            await signInManager.SignInAsync(user, isPersistent: true);
-        }
-
-        return Results.Redirect("/");
-    }).AllowAnonymous();
-
     app.MapGet("/api/auth/logout", async (HttpContext context) =>
     {
-        await context.SignOutAsync(IdentityConstants.ApplicationScheme);
-        await context.SignOutAsync(IdentityConstants.ExternalScheme);
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Results.Redirect("/login");
     }).AllowAnonymous();
 
