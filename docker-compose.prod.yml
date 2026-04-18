@@ -1,0 +1,56 @@
+name: status-tracker
+
+services:
+
+  status-tracker:
+    image: ghcr.io/cpike5/status-tracker:latest
+    container_name: status-tracker-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=statustracker;Username=app;Password=${POSTGRES_PASSWORD}"
+      ALLOWED_EMAILS: "${ALLOWED_EMAILS}"
+      Google__ClientId: "${GOOGLE_CLIENT_ID}"
+      Google__ClientSecret: "${GOOGLE_CLIENT_SECRET}"
+      Microsoft__ClientId: "${MICROSOFT_CLIENT_ID}"
+      Microsoft__ClientSecret: "${MICROSOFT_CLIENT_SECRET}"
+      GitHub__ClientId: "${GITHUB_CLIENT_ID}"
+      GitHub__ClientSecret: "${GITHUB_CLIENT_SECRET}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: status-tracker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: statustracker
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d statustracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+volumes:
+  postgres-data:
+
+networks:
+  internal:
+    driver: bridge
