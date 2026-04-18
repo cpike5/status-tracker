@@ -14,22 +14,23 @@
     <div class="endpoint-name-cell">
         <span class="endpoint-name">@EndpointStatus.Endpoint.Name</span>
         <span class="endpoint-url">@EndpointStatus.Endpoint.Url</span>
+        <span class="endpoint-summary-mobile">@ResponseTimeDisplay &middot; 24h: @FormatUptime(EndpointStatus.Uptime24h)</span>
     </div>
 
     @* Column 3: Status text *@
     <span class="endpoint-status endpoint-status--@StatusModifier">@StatusText</span>
 
-    @* Column 4: Response time (hide on mobile) *@
-    <span class="endpoint-metric hide-mobile">@ResponseTimeDisplay</span>
+    @* Column 4: Response time (hide on phone) *@
+    <span class="endpoint-metric hide-phone">@ResponseTimeDisplay</span>
 
-    @* Column 5: 24h uptime (hide on mobile) *@
-    <span class="endpoint-metric hide-mobile">@FormatUptime(EndpointStatus.Uptime24h)</span>
+    @* Column 5: 24h uptime (hide on phone) *@
+    <span class="endpoint-metric hide-phone">@FormatUptime(EndpointStatus.Uptime24h)</span>
 
-    @* Column 6: 7d uptime (hide on mobile) *@
-    <span class="endpoint-metric hide-mobile">@FormatUptime(EndpointStatus.Uptime7d)</span>
+    @* Column 6: 7d uptime (hide on tablet+phone) *@
+    <span class="endpoint-metric hide-tablet">@FormatUptime(EndpointStatus.Uptime7d)</span>
 
-    @* Column 7: 90-day uptime bar (hide on mobile) *@
-    <div class="hide-mobile">
+    @* Column 7: 90-day uptime bar (hide on tablet+phone) *@
+    <div class="hide-tablet">
         <UptimeBar DailySummaries="DailySummaries"
                    UptimePercentage="EndpointStatus.Uptime30d" />
     </div>

@@ -61,6 +61,20 @@
     }
 }
 
+/* Touch devices: disable hover tooltips */
+@media (max-width: 768px) {
+    .uptime-segment:hover::after {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .uptime-bar {
+        overflow: hidden;
+        border-radius: var(--radius-sm);
+    }
+}
+
 /* Legend */
 .uptime-legend {
     display: flex;

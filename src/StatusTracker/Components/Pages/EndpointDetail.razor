@@ -139,17 +139,17 @@ else
                             @foreach (var check in _recentChecks)
                             {
                                 <tr>
-                                    <td class="col-timestamp">
+                                    <td class="col-timestamp" data-label="Time">
                                         @ToLocalTime(check.Timestamp).ToString("h:mm:ss tt")
                                     </td>
-                                    <td class="col-status">
+                                    <td class="col-status" data-label="Status">
                                         <span class="check-dot @(check.IsHealthy ? "check-dot--up" : "check-dot--down")"></span>
                                         @(check.IsHealthy ? "Healthy" : "Down")
                                     </td>
-                                    <td class="col-response">
+                                    <td class="col-response" data-label="Response">
                                         @(check.ResponseTimeMs.HasValue ? $"{check.ResponseTimeMs}ms" : "—")
                                     </td>
-                                    <td class="col-http">
+                                    <td class="col-http" data-label="HTTP">
                                         @(check.HttpStatusCode.HasValue ? check.HttpStatusCode.Value.ToString() : "—")
                                     </td>
                                 </tr>
@@ -264,7 +264,31 @@ else
         },
         Markers = new Markers { Size = new ApexCharts.Size([0.0]) },
         DataLabels = new DataLabels { Enabled = false },
-        Legend = new Legend { Show = false }
+        Legend = new Legend { Show = false },
+        Responsive =
+        [
+            new Responsive<ResponseTimePoint>
+            {
+                Breakpoint = 768,
+                Options = new ApexChartOptions<ResponseTimePoint>
+                {
+                    Xaxis = new XAxis
+                    {
+                        Labels = new XAxisLabels
+                        {
+                            Show = true,
+                            Rotate = -45,
+                            MaxHeight = 80,
+                            Style = new AxisLabelStyle
+                            {
+                                FontSize = "10px"
+                            }
+                        },
+                        TickAmount = 4
+                    }
+                }
+            }
+        ]
     };
 
     // Computed display properties
