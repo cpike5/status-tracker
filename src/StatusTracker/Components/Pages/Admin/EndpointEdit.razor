@@ -107,19 +107,19 @@ else
         {
             await EndpointService.UpdateAsync(_endpoint!);
             Logger.LogInformation("Updated endpoint {EndpointId} ({EndpointName})", _endpoint!.Id, _endpoint.Name);
-            Snackbar.Add($"Endpoint \"{_endpoint.Name}\" saved successfully.", Severity.Success);
+            Snackbar.Add($"Endpoint \"{_endpoint.Name}\" saved successfully.", MudBlazor.Severity.Success);
             Navigation.NavigateTo("/admin/endpoints");
         }
         catch (ValidationException ex)
         {
             Logger.LogWarning(ex, "Validation failed updating endpoint {EndpointId}", Id);
             foreach (var error in ex.Errors)
-                Snackbar.Add(error.ErrorMessage, Severity.Error);
+                Snackbar.Add(error.ErrorMessage, MudBlazor.Severity.Error);
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to update endpoint {EndpointId}", Id);
-            Snackbar.Add($"Failed to save changes: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Failed to save changes: {ex.Message}", MudBlazor.Severity.Error);
         }
     }
 }
