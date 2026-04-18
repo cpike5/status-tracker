@@ -66,15 +66,13 @@ else
         {
             var endpoints = await EndpointService.GetWithStatusAsync();
 
-            var summaryTasks = endpoints.Select(async e =>
+            var summaries = new Dictionary<int, List<DailyUptimeSummary>>();
+            foreach (var e in endpoints)
             {
-                var summaries = await CheckResultService.GetDailyUptimeSummaryAsync(e.Endpoint.Id, 90);
-                return (EndpointId: e.Endpoint.Id, Summaries: summaries);
-            });
+                summaries[e.Endpoint.Id] = await CheckResultService.GetDailyUptimeSummaryAsync(e.Endpoint.Id, 90);
+            }
 
-            var summaryResults = await Task.WhenAll(summaryTasks);
-
-            _dailySummaries = summaryResults.ToDictionary(r => r.EndpointId, r => r.Summaries);
+            _dailySummaries = summaries;
 
             _sortedGroups = endpoints
                 .GroupBy(e => e.Endpoint.Group)

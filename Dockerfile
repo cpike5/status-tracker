@@ -30,7 +30,7 @@ LABEL org.opencontainers.image.description="Status Tracker — self-hosted statu
 
 WORKDIR /app
 
-RUN apk add --no-cache curl \
+RUN apk add --no-cache curl tzdata \
     # Create a locked-down non-root user; /sbin/nologin prevents interactive logins.
     && addgroup -S appgroup \
     && adduser -S -G appgroup -h /app -s /sbin/nologin appuser
