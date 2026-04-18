@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @attribute [Authorize]
 
+@using FluentValidation
 @using Microsoft.AspNetCore.Authorization
 @using StatusTracker.Components.Shared
 @using StatusTracker.Entities
@@ -109,10 +110,16 @@ else
             Snackbar.Add($"Endpoint \"{_endpoint.Name}\" saved successfully.", Severity.Success);
             Navigation.NavigateTo("/admin/endpoints");
         }
+        catch (ValidationException ex)
+        {
+            Logger.LogWarning(ex, "Validation failed updating endpoint {EndpointId}", Id);
+            foreach (var error in ex.Errors)
+                Snackbar.Add(error.ErrorMessage, Severity.Error);
+        }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Failed to update endpoint {EndpointId}", Id);
-            Snackbar.Add("Failed to save changes. Please try again.", Severity.Error);
+            Snackbar.Add($"Failed to save changes: {ex.Message}", Severity.Error);
         }
     }
 }
