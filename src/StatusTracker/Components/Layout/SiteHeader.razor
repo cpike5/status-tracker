@@ -12,13 +12,15 @@
             <a href="/" class="site-title">@SiteTitle</a>
         </div>
 
-        <div class="nav-meta">
-            <AuthorizeView>
-                <Authorized>
-                    <span class="live-indicator">
-                        <span class="live-dot" aria-hidden="true"></span>
-                        <span>Live</span>
-                    </span>
+        <AuthorizeView>
+            <Authorized>
+                <span class="live-indicator">
+                    <span class="live-dot" aria-hidden="true"></span>
+                    <span>Live</span>
+                </span>
+
+                @* Desktop nav — hidden on mobile *@
+                <div class="nav-meta">
                     <span class="separator">|</span>
                     <span class="last-updated">Last updated: @FormatLocalTime(DateTime.UtcNow)</span>
                     <span class="separator">|</span>
@@ -44,9 +46,36 @@
                     </MudMenu>
                     <span class="separator">|</span>
                     <MudLink Href="/api/auth/logout" Color="Color.Inherit" Typo="Typo.caption" Style="font-family: var(--font-mono); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.10em;">Logout</MudLink>
-                </Authorized>
-            </AuthorizeView>
-        </div>
+                </div>
+
+                @* Mobile nav — visible on small screens *@
+                <div class="mobile-menu">
+                    <MudMenu Icon="@Icons.Material.Filled.Menu"
+                             Size="Size.Small"
+                             Color="Color.Inherit"
+                             AnchorOrigin="Origin.BottomRight"
+                             TransformOrigin="Origin.TopRight"
+                             aria-label="Navigation menu">
+                        <MudMenuItem Href="/admin"
+                                     Icon="@Icons.Material.Filled.Dashboard">
+                            Admin
+                        </MudMenuItem>
+                        <MudMenuItem Href="/admin/endpoints"
+                                     Icon="@Icons.Material.Filled.MonitorHeart">
+                            Manage Endpoints
+                        </MudMenuItem>
+                        <MudMenuItem Href="/admin/settings"
+                                     Icon="@Icons.Material.Filled.Tune">
+                            Site Settings
+                        </MudMenuItem>
+                        <MudMenuItem Href="/api/auth/logout"
+                                     Icon="@Icons.Material.Filled.Logout">
+                            Logout
+                        </MudMenuItem>
+                    </MudMenu>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </div>
 </header>
 

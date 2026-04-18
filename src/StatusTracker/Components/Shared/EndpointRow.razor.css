@@ -47,6 +47,20 @@ a.endpoint-row {
 .endpoint-status--degraded { color: var(--color-degraded); }
 .endpoint-status--unknown  { color: var(--color-unknown); }
 
+/* Mobile summary line — compact metrics shown on phones */
+.endpoint-summary-mobile {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-ink-light);
+}
+
+@media (max-width: 768px) {
+    .endpoint-summary-mobile {
+        display: block;
+    }
+}
+
 /* Metric columns (response time, 24h, 7d) */
 .endpoint-metric {
     font-family: var(--font-mono);

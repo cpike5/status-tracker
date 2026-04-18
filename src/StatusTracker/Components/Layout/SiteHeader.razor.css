@@ -56,6 +56,10 @@
     color: var(--color-muted);
 }
 
+.mobile-menu {
+    display: none;
+}
+
 @media (max-width: 900px) {
     .header-content {
         padding: var(--space-xs) var(--space-sm);
@@ -67,5 +71,26 @@
 
     .separator {
         display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-meta {
+        display: none;
+    }
+
+    .mobile-menu {
+        display: flex;
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        padding: var(--space-2xs) var(--space-xs);
+    }
+
+    .site-title {
+        font-size: var(--text-lg);
     }
 }

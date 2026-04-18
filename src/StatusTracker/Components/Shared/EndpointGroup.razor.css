@@ -80,3 +80,10 @@
     color: var(--color-muted);
     padding-right: var(--space-xs);
 }
+
+@media (max-width: 768px) {
+    .group-header {
+        min-height: 48px;
+        padding: var(--space-sm);
+    }
+}
