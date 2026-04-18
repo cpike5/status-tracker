@@ -1,26 +1,24 @@
-<CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Program).Assembly" OnNavigateAsync="ResetOnNavigate">
-        <Found Context="routeData">
-            <ErrorBoundary @ref="_errorBoundary">
-                <ChildContent>
-                    <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-                        <NotAuthorized>
-                            <StatusTracker.Components.Shared.RedirectToLogin />
-                        </NotAuthorized>
-                    </AuthorizeRouteView>
-                    <FocusOnNavigate RouteData="routeData" Selector="h1" />
-                </ChildContent>
-                <ErrorContent>
-                    <div class="error-boundary-fallback" role="alert">
-                        <h2>Something went wrong</h2>
-                        <p>An unexpected error occurred. Please refresh the page to try again.</p>
-                        <button class="error-boundary-reset" @onclick="ResetError">Try Again</button>
-                    </div>
-                </ErrorContent>
-            </ErrorBoundary>
-        </Found>
-    </Router>
-</CascadingAuthenticationState>
+<Router AppAssembly="typeof(Program).Assembly" OnNavigateAsync="ResetOnNavigate">
+    <Found Context="routeData">
+        <ErrorBoundary @ref="_errorBoundary">
+            <ChildContent>
+                <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                    <NotAuthorized>
+                        <StatusTracker.Components.Shared.RedirectToLogin />
+                    </NotAuthorized>
+                </AuthorizeRouteView>
+                <FocusOnNavigate RouteData="routeData" Selector="h1" />
+            </ChildContent>
+            <ErrorContent>
+                <div class="error-boundary-fallback" role="alert">
+                    <h2>Something went wrong</h2>
+                    <p>An unexpected error occurred. Please refresh the page to try again.</p>
+                    <button class="error-boundary-reset" @onclick="ResetError">Try Again</button>
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
+    </Found>
+</Router>
 
 @code {
     private ErrorBoundary? _errorBoundary;
